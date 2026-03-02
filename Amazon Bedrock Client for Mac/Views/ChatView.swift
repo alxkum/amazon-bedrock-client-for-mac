@@ -243,21 +243,6 @@ struct ChatView: View {
             messageList
         }
         .modifier(ScrollEdgeEffectModifier())
-        .onChange(of: viewModel.messages) { _, _ in
-            // If the user was at bottom and not searching, wait briefly for layout and scroll down again
-            if isAtBottom && searchQuery.isEmpty {
-                Task {
-                    try? await Task.sleep(nanoseconds: 50_000_000) // 0.05s
-                    proxy.scrollTo("Bottom", anchor: .bottom)
-                }
-            }
-        }
-        // Scroll to bottom whenever the count of messages changes (but not during search)
-        .onChange(of: viewModel.messages.count) { _, _ in
-            if searchQuery.isEmpty {
-                proxy.scrollTo("Bottom", anchor: .bottom)
-            }
-        }
         .task {
             try? await Task.sleep(nanoseconds: 500_000_000)
             proxy.scrollTo("Bottom", anchor: .bottom)
