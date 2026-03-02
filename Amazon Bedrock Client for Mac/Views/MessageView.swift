@@ -795,11 +795,11 @@ struct MessageView: View {
             .background(messageBackground)
             .overlay(messageBorder)
             
-            // Copy button with optimized rendering
-            if isHovering {
-                copyButton
-                    .transition(.opacity)
-            }
+            // Copy button — use opacity instead of conditional to preserve text selection
+            copyButton
+                .opacity(isHovering ? 1.0 : 0.0)
+                .animation(.easeInOut(duration: 0.2), value: isHovering)
+                .allowsHitTesting(isHovering)
         }
         .sheet(isPresented: $viewModel.isShowingImageModal) {
             if let imageData = viewModel.selectedImageData,
