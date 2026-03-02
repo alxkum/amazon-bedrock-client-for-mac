@@ -1070,15 +1070,29 @@ class MCPManager: ObservableObject {
                         "uri": uri,
                         "mimeType": mimeType
                     ]
-                    
+
                     if let text = text {
                         resourceResult["text"] = text
                         resourceResult["description"] = "Resource from \(uri)"
                     } else {
                         resourceResult["description"] = "Resource reference: \(uri)"
                     }
-                    
+
                     resultContent.append(resourceResult)
+
+                case .resourceLink(let uri, let name, _, let description, let mimeType, _):
+                    var linkResult: [String: Any] = [
+                        "type": "resource_link",
+                        "uri": uri,
+                        "name": name
+                    ]
+                    if let description = description {
+                        linkResult["description"] = description
+                    }
+                    if let mimeType = mimeType {
+                        linkResult["mimeType"] = mimeType
+                    }
+                    resultContent.append(linkResult)
                 }
             } catch {
                 logger.error("Error processing content item: \(error)")
