@@ -29,13 +29,14 @@ class BackendModel: ObservableObject {
     @Published var isLoggedIn = false
     
     init() {
+        let useAPIKey = SettingManager.shared.useBedrockAPIKey
         do {
             self.backend = try BackendModel.createBackend()
             logger.info("Backend initialized successfully")
             self.isLoggedIn = true
         } catch {
             logger.error("Failed to initialize Backend: \(error)")
-            
+
             // Create Backend with default credentials when an error occurs
             let defaultCredentialProvider: any AWSCredentialIdentityResolver
             if let chain = try? DefaultAWSCredentialIdentityResolverChain() {
@@ -52,7 +53,14 @@ class BackendModel: ObservableObject {
                 runtimeEndpoint: "",
                 awsCredentialIdentityResolver: defaultCredentialProvider
             )
-            
+
+            // When using API key auth, suppress credential-related error alerts
+            if useAPIKey {
+                self.isLoggedIn = true
+                setupObservers()
+                return
+            }
+
             // Extract more detailed error information
             if let commonRuntimeError = error as? AwsCommonRuntimeKit.CommonRunTimeError {
                 // Use Mirror to access internal properties of CommonRunTimeError
@@ -100,13 +108,17 @@ class BackendModel: ObservableObject {
         let endpoint = SettingManager.shared.endpoint
         let runtimeEndpoint = SettingManager.shared.runtimeEndpoint
         let profiles = SettingManager.shared.profiles
-        
+        let useAPIKey = SettingManager.shared.useBedrockAPIKey
+
+        SettingManager.shared.applyBedrockAPIKeyEnvironment()
+
         return try Backend(
             region: region,
             profile: profile,
             endpoint: endpoint,
             runtimeEndpoint: runtimeEndpoint,
-            profiles: profiles
+            profiles: profiles,
+            useAPIKey: useAPIKey
         )
     }
     
@@ -115,10 +127,14 @@ class BackendModel: ObservableObject {
         let profilePublisher = SettingManager.shared.$selectedProfile
         let endpointPublisher = SettingManager.shared.$endpoint
         let runtimeEndpointPublisher = SettingManager.shared.$runtimeEndpoint
-        
+        let useAPIKeyPublisher = SettingManager.shared.$useBedrockAPIKey
+        let apiKeyPublisher = SettingManager.shared.$bedrockAPIKey
+
         Publishers.CombineLatest(regionPublisher, profilePublisher)
             .combineLatest(endpointPublisher)
             .combineLatest(runtimeEndpointPublisher)
+            .combineLatest(useAPIKeyPublisher)
+            .combineLatest(apiKeyPublisher)
             .debounce(for: .seconds(0.5), scheduler: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.refreshBackend()
@@ -139,14 +155,18 @@ class BackendModel: ObservableObject {
             let endpoint = SettingManager.shared.endpoint
             let runtimeEndpoint = SettingManager.shared.runtimeEndpoint
             let profiles = SettingManager.shared.profiles
-            
+            let useAPIKey = SettingManager.shared.useBedrockAPIKey
+
+            SettingManager.shared.applyBedrockAPIKeyEnvironment()
+
             do {
                 let newBackend = try Backend(
                     region: region,
                     profile: profile,
                     endpoint: endpoint,
                     runtimeEndpoint: runtimeEndpoint,
-                    profiles: profiles
+                    profiles: profiles,
+                    useAPIKey: useAPIKey
                 )
                 self.backend = newBackend
                 self.logger.info("Backend refreshed successfully")
@@ -154,7 +174,9 @@ class BackendModel: ObservableObject {
                 self.logger.error(
                     "Failed to refresh Backend: \(error.localizedDescription). Retaining current Backend."
                 )
-                self.alertMessage = "Failed to refresh Backend: \(error.localizedDescription)."
+                if !useAPIKey {
+                    self.alertMessage = "Failed to refresh Backend: \(error.localizedDescription)."
+                }
             }
         }
     }
@@ -188,15 +210,29 @@ class Backend: Equatable, @unchecked Sendable {
     
     /// Initializes Backend with given parameters.
     /// Uses provided profiles to determine if SSO or standard credentials should be used.
-    init(region: String, profile: String, endpoint: String, runtimeEndpoint: String, profiles: [ProfileInfo] = []) throws {
+    /// When useAPIKey is true, bypasses profile-based credential resolution and uses a dummy
+    /// credential provider. The SDK's built-in BedrockAPIKeyInterceptor handles auth via the
+    /// AWS_BEARER_TOKEN_BEDROCK environment variable.
+    init(region: String, profile: String, endpoint: String, runtimeEndpoint: String, profiles: [ProfileInfo] = [], useAPIKey: Bool = false) throws {
         self.region = region
         self.profile = profile
         self.endpoint = endpoint
         self.runtimeEndpoint = runtimeEndpoint
-        
+
+        // When using API key auth, skip profile-based credential resolution entirely.
+        // The BedrockAPIKeyInterceptor will override auth at request time with the bearer token.
+        if useAPIKey {
+            self.awsCredentialIdentityResolver = StaticAWSCredentialIdentityResolver(
+                AWSCredentialIdentity(accessKey: "", secret: "")
+            )
+            logger.info("Using Bedrock API key authentication (bearer token via environment variable)")
+            logger.info("Backend initialized with region: \(region), endpoint: \(endpoint), runtimeEndpoint: \(runtimeEndpoint)")
+            return
+        }
+
         logger.info("Backend init called with \(profiles.count) profiles: \(profiles.map { $0.name }.joined(separator: ", "))")
         logger.info("Looking for profile: \(profile)")
-        
+
         // Try to initialize credentials in order of preference
         do {
             // First try: Use the specified profile from provided profiles
@@ -229,7 +265,7 @@ class Backend: Equatable, @unchecked Sendable {
             // Final try: Use DefaultAWSCredentialIdentityResolverChain as last resort
             logger.warning("Failed to initialize with profile '\(profile)': \(error.localizedDescription)")
             logger.info("Attempting to use DefaultAWSCredentialIdentityResolverChain")
-            
+
             do {
                 let chain = try DefaultAWSCredentialIdentityResolverChain()
                 self.awsCredentialIdentityResolver = chain
@@ -240,7 +276,7 @@ class Backend: Equatable, @unchecked Sendable {
                 throw error
             }
         }
-        
+
         logger.info("Backend initialized with region: \(region), profile: \(profile), endpoint: \(endpoint), runtimeEndpoint: \(runtimeEndpoint)")
     }
     

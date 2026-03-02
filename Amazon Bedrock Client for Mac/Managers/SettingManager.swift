@@ -66,6 +66,18 @@ class SettingManager: ObservableObject {
     @Published var selectedProfile: String { didSet { saveSettings() } }
     @Published var endpoint: String { didSet { saveSettings() } }
     @Published var runtimeEndpoint: String { didSet { saveSettings() } }
+    @Published var useBedrockAPIKey: Bool {
+        didSet {
+            saveSettings()
+            applyBedrockAPIKeyEnvironment()
+        }
+    }
+    @Published var bedrockAPIKey: String {
+        didSet {
+            saveSettings()
+            applyBedrockAPIKeyEnvironment()
+        }
+    }
 
     @Published var isSSOLoggedIn: Bool = false
     @Published var profiles: [ProfileInfo] = []
@@ -139,6 +151,8 @@ class SettingManager: ObservableObject {
         self.selectedProfile = UserDefaults.standard.string(forKey: "selectedProfile") ?? "default"
         self.endpoint = UserDefaults.standard.string(forKey: "endpoint") ?? ""
         self.runtimeEndpoint = UserDefaults.standard.string(forKey: "runtimeEndpoint") ?? ""
+        self.useBedrockAPIKey = UserDefaults.standard.bool(forKey: "useBedrockAPIKey")
+        self.bedrockAPIKey = UserDefaults.standard.string(forKey: "bedrockAPIKey") ?? ""
         
         // Set default hotkey values if not already set
         if UserDefaults.standard.object(forKey: "hotkeyModifiers") == nil {
@@ -223,6 +237,7 @@ class SettingManager: ObservableObject {
             self.novaReelConfig = NovaReelConfig.defaultConfig
         }
         
+        applyBedrockAPIKeyEnvironment()
         setupFileMonitoring()
         logger.info("Settings loaded: \(selectedRegion.rawValue), \(selectedProfile)")
     }
@@ -239,8 +254,20 @@ class SettingManager: ObservableObject {
         UserDefaults.standard.set(selectedProfile, forKey: "selectedProfile")
         UserDefaults.standard.set(endpoint, forKey: "endpoint")
         UserDefaults.standard.set(runtimeEndpoint, forKey: "runtimeEndpoint")
-        
+        UserDefaults.standard.set(useBedrockAPIKey, forKey: "useBedrockAPIKey")
+        UserDefaults.standard.set(bedrockAPIKey, forKey: "bedrockAPIKey")
+
         logger.info("Settings saved: \(selectedRegion.rawValue), \(selectedProfile)")
+    }
+
+    func applyBedrockAPIKeyEnvironment() {
+        if useBedrockAPIKey && !bedrockAPIKey.isEmpty {
+            setenv("AWS_BEARER_TOKEN_BEDROCK", bedrockAPIKey, 1)
+            logger.info("Bedrock API key environment variable set")
+        } else {
+            unsetenv("AWS_BEARER_TOKEN_BEDROCK")
+            logger.info("Bedrock API key environment variable cleared")
+        }
     }
     
     func addModelToFavorites(_ modelId: String) {

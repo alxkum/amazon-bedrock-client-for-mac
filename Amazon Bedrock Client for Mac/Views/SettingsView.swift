@@ -133,6 +133,15 @@ struct GeneralSettingsView: View {
         Form {
             // AWS Configuration
             Section("AWS Configuration") {
+                LabeledContent("Authentication") {
+                    Picker("", selection: $settingsManager.useBedrockAPIKey) {
+                        Text("Profile").tag(false)
+                        Text("API Key").tag(true)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                }
+
                 LabeledContent("Region") {
                     Picker("", selection: $settingsManager.selectedRegion) {
                         Section("North America") {
@@ -140,25 +149,25 @@ struct GeneralSettingsView: View {
                                 Text(region.name).tag(region)
                             }
                         }
-                        
+
                         Section("Europe") {
                             ForEach(AWSRegion.regions(in: .europe, includePaused: showPausedRegions), id: \.self) { region in
                                 Text(region.name).tag(region)
                             }
                         }
-                        
+
                         Section("Asia Pacific") {
                             ForEach(AWSRegion.regions(in: .asiaPacific, includePaused: showPausedRegions), id: \.self) { region in
                                 Text(region.name).tag(region)
                             }
                         }
-                        
+
                         Section("Other") {
                             ForEach(AWSRegion.regions(in: .other, includePaused: showPausedRegions), id: \.self) { region in
                                 Text(region.name).tag(region)
                             }
                         }
-                        
+
                         if showGovCloudRegions {
                             Section("GovCloud") {
                                 ForEach(AWSRegion.regions(in: .govCloud), id: \.self) { region in
@@ -169,25 +178,32 @@ struct GeneralSettingsView: View {
                     }
                     .labelsHidden()
                 }
-                
-                LabeledContent("Profile") {
-                    if settingsManager.isSSOLoggedIn {
-                        HStack {
-                            Text("AWS Identity Center")
-                                .foregroundStyle(.secondary)
-                            Button("Log Out") {
-                                // SSO logout
+
+                if settingsManager.useBedrockAPIKey {
+                    LabeledContent("API Key") {
+                        SecureField("", text: $settingsManager.bedrockAPIKey, prompt: Text("Paste your Bedrock API key"))
+                            .textFieldStyle(.roundedBorder)
+                    }
+                } else {
+                    LabeledContent("Profile") {
+                        if settingsManager.isSSOLoggedIn {
+                            HStack {
+                                Text("AWS Identity Center")
+                                    .foregroundStyle(.secondary)
+                                Button("Log Out") {
+                                    // SSO logout
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
                             }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                        }
-                    } else {
-                        Picker("", selection: $settingsManager.selectedProfile) {
-                            ForEach(settingsManager.profiles) { profile in
-                                Text(profile.name).tag(profile.name)
+                        } else {
+                            Picker("", selection: $settingsManager.selectedProfile) {
+                                ForEach(settingsManager.profiles) { profile in
+                                    Text(profile.name).tag(profile.name)
+                                }
                             }
+                            .labelsHidden()
                         }
-                        .labelsHidden()
                     }
                 }
             }
