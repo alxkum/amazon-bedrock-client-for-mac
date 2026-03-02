@@ -169,7 +169,7 @@ struct QuickAccessView: View {
             isDisabled: .constant(false),
             calculatedHeight: $calculatedHeight,
             isPasting: $isPasting,
-            allowImagePasting: settingManager.allowImagePasting,
+            allowImagePasting: true,
             treatLargeTextAsFile: settingManager.treatLargeTextAsFile,
             onCommit: sendMessage,
             onPaste: handleImagePaste,

@@ -20,6 +20,7 @@ struct MessageBarView: View {
     @Binding var userInput: String
     @ObservedObject private var settingManager = SettingManager.shared
     @ObservedObject private var mcpManager = MCPManager.shared
+    @ObservedObject private var templateManager = PromptTemplateManager.shared
     @ObservedObject var chatManager: ChatManager = ChatManager.shared
     @StateObject var sharedMediaDataSource: SharedMediaDataSource
     var transcribeManager: TranscribeStreamingManager
@@ -79,9 +80,10 @@ struct MessageBarView: View {
             }
             
             // Message input bar with buttons
-            HStack(alignment: .center, spacing: 2) {
+            HStack(alignment: .center, spacing: 1) {
                 fileUploadButton
-                advancedOptionsButton
+                thinkingToggleButton
+                systemPromptButton
                 inputArea
                 
                 HStack(spacing: 4) {
@@ -131,14 +133,109 @@ struct MessageBarView: View {
     
     // MARK: - UI Components
     
-    private var advancedOptionsButton: some View {
-        AdvancedOptionsMenu(
-            userInput: $userInput,
-            settingManager: settingManager,
-            modelId: modelId
+    // MARK: - Model Support Properties
+
+    private var supportsThinking: Bool {
+        let id = modelId.lowercased()
+        return id.contains("claude-3-7") ||
+               id.contains("claude-sonnet-4") || id.contains("claude-sonnet-5") ||
+               id.contains("claude-haiku-4") || id.contains("claude-haiku-5") ||
+               id.contains("claude-opus-4") || id.contains("claude-opus-5") ||
+               (id.contains("deepseek") && id.contains("r1")) ||
+               (id.contains("openai") && id.contains("gpt-oss")) ||
+               (id.contains("nova-2") && id.contains("lite"))
+    }
+
+    private var hasAlwaysOnThinking: Bool {
+        let id = modelId.lowercased()
+        return id.contains("deepseek") && id.contains("r1")
+    }
+
+    private var shouldShowThinkingToggle: Bool {
+        return supportsThinking && !hasAlwaysOnThinking
+    }
+
+    @ViewBuilder
+    private var thinkingToggleButton: some View {
+        if shouldShowThinkingToggle {
+            Button(action: {
+                settingManager.enableModelThinking.toggle()
+            }) {
+                Image(systemName: "brain.head.profile")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(settingManager.enableModelThinking ? .accentColor : .secondary)
+                    .frame(width: 32, height: 32)
+                    .background(
+                        Circle()
+                            .fill(settingManager.enableModelThinking ? Color.accentColor.opacity(0.15) : Color.clear)
+                    )
+            }
+            .buttonStyle(PlainButtonStyle())
+            .help(settingManager.enableModelThinking ? "Thinking enabled" : "Thinking disabled")
+        } else if hasAlwaysOnThinking {
+            Image(systemName: "brain.head.profile")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.accentColor)
+                .frame(width: 32, height: 32)
+                .background(
+                    Circle()
+                        .fill(Color.accentColor.opacity(0.15))
+                )
+                .help("Thinking: Always On")
+        }
+    }
+
+    private var isCustomTemplateSelected: Bool {
+        guard let selectedId = templateManager.selectedTemplateId,
+              let template = templateManager.templates.first(where: { $0.id == selectedId }) else {
+            return false
+        }
+        return template.name != "Default"
+    }
+
+    private var systemPromptButton: some View {
+        Menu {
+            ForEach(templateManager.templates) { template in
+                Button {
+                    templateManager.selectTemplate(template)
+                } label: {
+                    HStack {
+                        Text(template.name)
+                        if templateManager.selectedTemplateId == template.id {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "person.fill")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(isCustomTemplateSelected ? .accentColor : .secondary)
+                    .frame(width: 32, height: 32)
+                    .background(
+                        Circle()
+                            .fill(isCustomTemplateSelected ? Color.accentColor.opacity(0.15) : Color.clear)
+                    )
+                if isCustomTemplateSelected,
+                   let selectedId = templateManager.selectedTemplateId,
+                   let template = templateManager.templates.first(where: { $0.id == selectedId }) {
+                    Text(template.name)
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(.accentColor)
+                        .lineLimit(1)
+                }
+            }
+            .frame(height: 32)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .menuIndicator(.hidden)
+        .help(isCustomTemplateSelected
+            ? "System Prompt: \(templateManager.templates.first(where: { $0.id == templateManager.selectedTemplateId })?.name ?? "")"
+            : "System Prompt"
         )
     }
-    
+
     private var fileUploadButton: some View {
         Button(action: {
             let panel = NSOpenPanel()
@@ -147,7 +244,7 @@ struct MessageBarView: View {
                                           UTType(filenameExtension: "xls")!, UTType(filenameExtension: "xlsx")!,
                                           UTType(filenameExtension: "md")!].compactMap { $0 }
             panel.allowsMultipleSelection = true
-            
+
             panel.begin { response in
                 if response == .OK {
                     handleFileImport(panel.urls)
@@ -157,11 +254,12 @@ struct MessageBarView: View {
             Image(systemName: "paperclip")
                 .font(.system(size: 14, weight: .medium))
                 .foregroundColor(.primary)
+                .frame(width: 32, height: 32)
         }
         .buttonStyle(PlainButtonStyle())
-        .frame(width: 32, height: 32)
+        .help("Attach files")
     }
-    
+
     private var micButton: some View {
         Button(action: {
             Task {
@@ -182,6 +280,7 @@ struct MessageBarView: View {
         .focusable(false)
         // Explicitly prevent it from getting keyboard focus
         .accessibilityAddTraits(.isButton)
+        .help(transcribeManager.isTranscribing ? "Stop recording" : "Start voice input")
     }
     
     private var inputArea: some View {
@@ -190,7 +289,7 @@ struct MessageBarView: View {
             isDisabled: .constant(false),
             calculatedHeight: $calculatedHeight,
             isPasting: $isPasting,
-            allowImagePasting: settingManager.allowImagePasting,
+            allowImagePasting: true,
             treatLargeTextAsFile: settingManager.treatLargeTextAsFile,
             onCommit: {
                 handleSendMessage()
@@ -240,6 +339,7 @@ struct MessageBarView: View {
         .onChange(of: chatManager.getIsLoading(for: chatID)) { _, newValue in
             isLoading = newValue
         }
+        .help(isLoading ? "Stop generating" : "Send message")
     }
     
     // MARK: - Helper Methods
@@ -321,15 +421,13 @@ struct MessageBarView: View {
 
     
     private func handleImagePaste(_ image: NSImage) {
-        if settingManager.allowImagePasting {
-            if sharedMediaDataSource.images.count < 10 {
-                Task {
-                    isPasting = true
-                    let (compressedImage, filename, fileExtension) = await processImageInParallel(image)
-                    sharedMediaDataSource.addImage(compressedImage, fileExtension: fileExtension, filename: filename)
-                    syncAttachments()
-                    isPasting = false
-                }
+        if sharedMediaDataSource.images.count < 10 {
+            Task {
+                isPasting = true
+                let (compressedImage, filename, fileExtension) = await processImageInParallel(image)
+                sharedMediaDataSource.addImage(compressedImage, fileExtension: fileExtension, filename: filename)
+                syncAttachments()
+                isPasting = false
             }
         }
     }
@@ -573,146 +671,6 @@ struct PasteLoadingView: View {
         .padding(.bottom, 8)
         .transition(.opacity)
     }
-}
-
-struct AdvancedOptionsMenu: View {
-    @Binding var userInput: String
-    @ObservedObject var settingManager: SettingManager
-    @ObservedObject var mcpManager: MCPManager = MCPManager.shared
-    @ObservedObject var templateManager: PromptTemplateManager = PromptTemplateManager.shared
-    var modelId: String
-    
-    // Check if current model supports reasoning/thinking
-    private var supportsThinking: Bool {
-        let id = modelId.lowercased()
-        // Claude 3.7, Claude 4 series, DeepSeek R1, OpenAI GPT-OSS, and Nova 2 Lite support thinking
-        return id.contains("claude-3-7") || 
-               id.contains("claude-sonnet-4") || id.contains("claude-sonnet-5") ||
-               id.contains("claude-haiku-4") || id.contains("claude-haiku-5") ||
-               id.contains("claude-opus-4") || id.contains("claude-opus-5") ||
-               (id.contains("deepseek") && id.contains("r1")) ||
-               (id.contains("openai") && id.contains("gpt-oss")) ||
-               (id.contains("nova-2") && id.contains("lite"))
-    }
-    
-    // Check if model has always-on reasoning that can't be toggled
-    private var hasAlwaysOnThinking: Bool {
-        let id = modelId.lowercased()
-        // DeepSeek R1 has always-on thinking
-        return id.contains("deepseek") && id.contains("r1")
-    }
-    
-    // Check if thinking toggle should be shown
-    private var shouldShowThinkingToggle: Bool {
-        return supportsThinking && !hasAlwaysOnThinking
-    }
-    
-    // Check if current model supports streaming tool use
-    private var supportsStreamingTools: Bool {
-        let id = modelId.lowercased()
-        return (
-            // Claude models (3 and 4 series)
-            (id.contains("claude-3") && !id.contains("haiku")) ||
-            id.contains("claude-sonnet-4") || id.contains("claude-sonnet-5") ||
-            id.contains("claude-opus-4") || id.contains("claude-opus-5") ||
-            
-            // Amazon Nova models (including Nova 2)
-            (id.contains("nova-pro") ||
-             id.contains("nova-lite") ||
-             id.contains("nova-micro") ||
-             id.contains("nova-premier") ||
-             id.contains("nova-2")) ||
-            
-            // Cohere Command-R models
-            (id.contains("cohere") && id.contains("command-r")) ||
-            
-            // AI21 Jamba models (except Instruct)
-            (id.contains("ai21") && id.contains("jamba") && !id.contains("instruct")) ||
-            
-            // OpenAI GPT-OSS models
-            (id.contains("openai") && id.contains("gpt-oss")) ||
-            
-            // Kimi K2 models
-            (id.contains("moonshot") && id.contains("kimi-k2")) ||
-            
-            // Pixtral Large
-            id.contains("pixtral-large")
-        )
-    }
-
-    // Check if MCP tools should be available and shown
-    private var shouldShowMCPTools: Bool {
-        return mcpManager.mcpEnabled && !mcpManager.toolInfos.isEmpty && supportsStreamingTools
-    }
-    
-    var body: some View {
-        Menu {
-            Text("More Options")
-                .font(.headline)
-                .foregroundColor(.secondary)
-            
-            // Show thinking toggle for models that support configurable reasoning
-            if shouldShowThinkingToggle {
-                Toggle("Enable Thinking", isOn: $settingManager.enableModelThinking)
-                    .help("Allow the model to show its thinking process")
-            }
-            
-            // For models with always-on thinking, show an informative option
-            if hasAlwaysOnThinking {
-                Text("Thinking: Always On")
-                    .foregroundColor(.secondary)
-                    .help("This model always includes its thinking process")
-            }
-            
-            Toggle("Allow Image Pasting", isOn: $settingManager.allowImagePasting)
-                .help("Enable or disable image pasting functionality")
-            
-            Divider()
-            
-            // System Prompt selection (flat list)
-            Menu("System Prompt") {
-                ForEach(templateManager.templates) { template in
-                    Button {
-                        templateManager.selectTemplate(template)
-                    } label: {
-                        HStack {
-                            Text(template.name)
-                            if templateManager.selectedTemplateId == template.id {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // MCP tools section - only show if model supports streaming tool use
-            if shouldShowMCPTools {
-                Divider()
-                
-                Text("Available Tools").bold()
-                
-                ForEach(MCPManager.shared.toolInfos) { tool in
-                    Button {
-                    } label: {
-                        Label(tool.toolName, systemImage: "bolt.fill")
-                    }
-                    .help(tool.description)
-                }
-            }
-            
-
-        } label: {
-            Image(systemName: shouldShowMCPTools
-                  ? "plus.circle.fill"
-                  : "plus.circle")
-            .font(.system(size: 16, weight: .regular))
-            .foregroundColor(.primary)
-        }
-        .buttonStyle(PlainButtonStyle())
-        .menuIndicator(.hidden)
-        .frame(width: 32, height: 32)
-    }
-    
 }
 
 struct ImageAttachment: Identifiable {
