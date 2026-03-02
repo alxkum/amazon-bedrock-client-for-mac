@@ -587,9 +587,9 @@ struct AdvancedOptionsMenu: View {
         let id = modelId.lowercased()
         // Claude 3.7, Claude 4 series, DeepSeek R1, OpenAI GPT-OSS, and Nova 2 Lite support thinking
         return id.contains("claude-3-7") || 
-               id.contains("claude-sonnet-4") || 
-               id.contains("claude-haiku-4") || 
-               id.contains("claude-opus-4") || 
+               id.contains("claude-sonnet-4") || id.contains("claude-sonnet-5") ||
+               id.contains("claude-haiku-4") || id.contains("claude-haiku-5") ||
+               id.contains("claude-opus-4") || id.contains("claude-opus-5") ||
                (id.contains("deepseek") && id.contains("r1")) ||
                (id.contains("openai") && id.contains("gpt-oss")) ||
                (id.contains("nova-2") && id.contains("lite"))
@@ -613,8 +613,8 @@ struct AdvancedOptionsMenu: View {
         return (
             // Claude models (3 and 4 series)
             (id.contains("claude-3") && !id.contains("haiku")) ||
-            id.contains("claude-sonnet-4") ||
-            id.contains("claude-opus-4") ||
+            id.contains("claude-sonnet-4") || id.contains("claude-sonnet-5") ||
+            id.contains("claude-opus-4") || id.contains("claude-opus-5") ||
             
             // Amazon Nova models (including Nova 2)
             (id.contains("nova-pro") ||

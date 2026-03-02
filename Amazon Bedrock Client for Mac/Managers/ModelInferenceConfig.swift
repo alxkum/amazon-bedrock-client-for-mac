@@ -42,8 +42,8 @@ struct ModelInferenceRange {
         let modelType = getModelTypeFromId(modelId)
         
         switch modelType {
-        case .claudeSonnet45:
-            // Claude Sonnet 4.5 doesn't support top_p with temperature
+        case .claudeSonnet45, .claudeSonnetGen2:
+            // Claude Sonnet 4.5+ doesn't support top_p with temperature
             return ModelInferenceRange(
                 maxTokensRange: 1...64000,
                 temperatureRange: 0.0...1.0,
@@ -55,8 +55,8 @@ struct ModelInferenceRange {
                 defaultThinkingBudget: 2048,
                 defaultReasoningEffort: "medium"
             )
-        case .claudeHaiku45:
-            // Claude Haiku 4.5 doesn't support top_p with temperature
+        case .claudeHaiku45, .claudeHaikuGen2:
+            // Claude Haiku 4.5+ doesn't support top_p with temperature
             return ModelInferenceRange(
                 maxTokensRange: 1...64000,
                 temperatureRange: 0.0...1.0,
@@ -68,8 +68,8 @@ struct ModelInferenceRange {
                 defaultThinkingBudget: 2048,
                 defaultReasoningEffort: "medium"
             )
-        case .claudeOpus45:
-            // Claude Opus 4.5 doesn't support top_p with temperature (same as Sonnet 4.5 and Haiku 4.5)
+        case .claudeOpus45, .claudeOpusGen2:
+            // Claude Opus 4.5+ doesn't support top_p with temperature (same as Sonnet 4.5 and Haiku 4.5)
             return ModelInferenceRange(
                 maxTokensRange: 1...64000,
                 temperatureRange: 0.0...1.0,
@@ -349,10 +349,16 @@ struct ModelInferenceRange {
         case "anthropic":
             if modelNameAndVersion.contains("claude-sonnet-4-5") {
                 return .claudeSonnet45
+            } else if modelNameAndVersion.range(of: "claude-sonnet-(4-[3-9]|[5-9])", options: .regularExpression) != nil {
+                return .claudeSonnetGen2
             } else if modelNameAndVersion.contains("claude-haiku-4-5") {
                 return .claudeHaiku45
+            } else if modelNameAndVersion.range(of: "claude-haiku-(4-[3-9]|[5-9])", options: .regularExpression) != nil {
+                return .claudeHaikuGen2
             } else if modelNameAndVersion.contains("claude-opus-4-5") {
                 return .claudeOpus45
+            } else if modelNameAndVersion.range(of: "claude-opus-(4-[3-9]|[5-9])", options: .regularExpression) != nil {
+                return .claudeOpusGen2
             } else if modelNameAndVersion.contains("claude-opus-4-1") {
                 return .claudeOpus41
             } else if modelNameAndVersion.contains("claude-sonnet-4") {
