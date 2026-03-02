@@ -185,6 +185,10 @@ struct MessageBarView: View {
         }
     }
 
+    private var hasNonDefaultTemplates: Bool {
+        templateManager.templates.contains(where: { $0.name != "Default" })
+    }
+
     private var isCustomTemplateSelected: Bool {
         guard let selectedId = templateManager.selectedTemplateId,
               let template = templateManager.templates.first(where: { $0.id == selectedId }) else {
@@ -193,7 +197,9 @@ struct MessageBarView: View {
         return template.name != "Default"
     }
 
+    @ViewBuilder
     private var systemPromptButton: some View {
+        if hasNonDefaultTemplates {
         Menu {
             ForEach(templateManager.templates) { template in
                 Button {
@@ -234,6 +240,7 @@ struct MessageBarView: View {
             ? "System Prompt: \(templateManager.templates.first(where: { $0.id == templateManager.selectedTemplateId })?.name ?? "")"
             : "System Prompt"
         )
+        }
     }
 
     private var fileUploadButton: some View {
