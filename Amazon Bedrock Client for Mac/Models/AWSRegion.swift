@@ -61,7 +61,7 @@ struct AWSRegionMapping {
     static let allRegions: [AWSRegionInfo] = [
         AWSRegionInfo(id: "us-east-1", name: "US East (N. Virginia)", airportCode: "IAD", status: .available),
         AWSRegionInfo(id: "us-east-2", name: "US East (Ohio)", airportCode: "CMH", status: .available),
-        AWSRegionInfo(id: "us-west-1", name: "US West (N. California)", airportCode: "SFO", status: .paused),
+        AWSRegionInfo(id: "us-west-1", name: "US West (N. California)", airportCode: "SFO", status: .available),
         AWSRegionInfo(id: "us-west-2", name: "US West (Oregon)", airportCode: "PDX", status: .available),
         AWSRegionInfo(id: "us-gov-west-1", name: "GovCloud (US-West)", airportCode: "PDT", status: .available),
         AWSRegionInfo(id: "us-gov-east-1", name: "GovCloud (US-East)", airportCode: "OSU", status: .available),
