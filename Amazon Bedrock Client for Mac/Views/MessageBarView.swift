@@ -239,10 +239,10 @@ struct MessageBarView: View {
     private var fileUploadButton: some View {
         Button(action: {
             let panel = NSOpenPanel()
-            panel.allowedContentTypes = [.pdf, .commaSeparatedText, .html, .plainText, .jpeg, .png, .gif, .tiff, .webP,
+            /*panel.allowedContentTypes = [.pdf, .commaSeparatedText, .html, .plainText, .jpeg, .png, .gif, .tiff, .webP,
                                           UTType(filenameExtension: "doc")!, UTType(filenameExtension: "docx")!,
                                           UTType(filenameExtension: "xls")!, UTType(filenameExtension: "xlsx")!,
-                                          UTType(filenameExtension: "md")!].compactMap { $0 }
+                                          UTType(filenameExtension: "md")!].compactMap { $0 }*/
             panel.allowsMultipleSelection = true
 
             panel.begin { response in
