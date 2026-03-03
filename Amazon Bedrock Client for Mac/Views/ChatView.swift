@@ -16,6 +16,14 @@ struct BottomAnchorPreferenceKey: PreferenceKey {
     }
 }
 
+struct UserMessageOffsetsKey: PreferenceKey {
+    typealias Value = [Int: CGFloat]
+    nonisolated(unsafe) static var defaultValue: [Int: CGFloat] = [:]
+    static func reduce(value: inout Value, nextValue: () -> Value) {
+        value.merge(nextValue()) { _, new in new }
+    }
+}
+
 struct ChatView: View {
     @StateObject private var viewModel: ChatViewModel
     @StateObject private var sharedMediaDataSource = SharedMediaDataSource()
@@ -28,6 +36,7 @@ struct ChatView: View {
     
     @State private var isAtBottom: Bool = true
     @State private var isSearchActive: Bool = false // Add search state tracking
+    @State private var userMessageOffsets: [Int: CGFloat] = [:]
     
     // Font size adjustment state
     @AppStorage("adjustedFontSize") private var adjustedFontSize: Int = -1
@@ -201,10 +210,13 @@ struct ChatView: View {
             ScrollViewReader { proxy in
                 ZStack {
                     scrollableMessageList(outerGeo: outerGeo, proxy: proxy)
-                    enhancedScrollToBottomButton(outerGeo: outerGeo, proxy: proxy)
+                    enhancedScrollToBottomButton(offsets: userMessageOffsets, proxy: proxy)
                 }
                 .onPreferenceChange(BottomAnchorPreferenceKey.self) { bottomY in
                     handleBottomAnchorChange(bottomY, containerHeight: outerGeo.size.height)
+                }
+                .onPreferenceChange(UserMessageOffsetsKey.self) { offsets in
+                    userMessageOffsets = offsets
                 }
                 .onChange(of: searchResult) { _, newResult in
                     jumpToFirstMatch(newResult, proxy: proxy)
@@ -223,35 +235,38 @@ struct ChatView: View {
         let messageList = VStack(spacing: 2) {
             ForEach(Array(viewModel.messages.enumerated()), id: \.offset) { idx, message in
                 MessageView(
-                    message: message, 
+                    message: message,
                     searchResult: getSearchResultForMessage(idx),
                     adjustedFontSize: CGFloat(adjustedFontSize)
                 )
                     .id(idx)
                     .frame(maxWidth: .infinity)
+                    .anchorPreference(key: UserMessageOffsetsKey.self, value: .top) { anchor in
+                        message.user == "User" ? [idx: outerGeo[anchor].y] : [:]
+                    }
             }
             Color.clear
                 .frame(height: 1)
-                .id("Bottom")
+                .id(Int.max)
                 .anchorPreference(key: BottomAnchorPreferenceKey.self, value: .bottom) { anchor in
                     outerGeo[anchor].y
                 }
         }
         .padding()
-        
+
         return ScrollView {
             messageList
         }
         .modifier(ScrollEdgeEffectModifier())
         .task {
             try? await Task.sleep(nanoseconds: 500_000_000)
-            proxy.scrollTo("Bottom", anchor: .bottom)
+            proxy.scrollTo(Int.max, anchor: .bottom)
             isAtBottom = true
         }
     }
     
     private func enhancedScrollToBottomButton(
-        outerGeo: GeometryProxy,
+        offsets: [Int: CGFloat],
         proxy: ScrollViewProxy
     ) -> some View {
         Group {
@@ -261,12 +276,23 @@ struct ChatView: View {
                     HStack {
                         Spacer()
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                proxy.scrollTo("Bottom", anchor: .bottom)
-                                isAtBottom = true
+                            let topMargin: CGFloat = 80
+                            let nextUserMsg = offsets
+                                .filter { $0.value > topMargin }
+                                .min(by: { $0.value < $1.value })
+
+                            if let next = nextUserMsg {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    proxy.scrollTo(next.key, anchor: .top)
+                                }
+                            } else {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    proxy.scrollTo(Int.max, anchor: .bottom)
+                                    isAtBottom = true
+                                }
                             }
                         } label: {
-                            Image(systemName: "arrow.down")
+                            Image(systemName: "chevron.down")
                                 .font(.system(size: 14, weight: .medium))
                                 .foregroundStyle(.primary)
                                 .frame(width: 32, height: 32)
@@ -477,7 +503,7 @@ struct ChatView: View {
         let threshold: CGFloat = 50
         isAtBottom = (bottomY <= containerHeight + threshold)
     }
-    
+
     private func jumpToFirstMatch(_ result: SearchResult, proxy: ScrollViewProxy) {
         guard let firstMatch = result.matches.first else { return }
         scrollToMatch(messageIndex: firstMatch.messageIndex, matchIndex: 0, proxy: proxy)
