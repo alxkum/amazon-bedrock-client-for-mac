@@ -523,7 +523,7 @@ struct MessageView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack {
                         if message.user == "User" {
-                            Spacer()
+                            Spacer(minLength: 128)
                             userMessageBubble
                                 .padding(.horizontal)
                         } else {
@@ -751,17 +751,10 @@ struct MessageView: View {
     private var userMessageBubble: some View {
         // Cache complex views to avoid unnecessary recalculations
         let messageBackground = RoundedRectangle(cornerRadius: 16)
-            .fill(colorScheme == .dark ?
-                  Color.white.opacity(0.08) :
-                  Color.black.opacity(0.04))
+            .fill(Color.accentColor)
         
         let messageBorder = RoundedRectangle(cornerRadius: 16)
-            .stroke(
-                colorScheme == .dark ?
-                Color.white.opacity(0.12) :
-                Color.black.opacity(0.08),
-                lineWidth: 0.5
-            )
+            .stroke(Color.clear, lineWidth: 0)
         
         return ZStack(alignment: .bottomTrailing) {
             // Main message content with optimized rendering
@@ -834,7 +827,7 @@ struct MessageView: View {
                 // Simple text without highlighting when no search
                 Text(message.text)
                     .font(.system(size: fontSize + adjustedFontSize))
-                    .foregroundColor(.primary)
+                    .foregroundColor(.white)
             }
         }
     }
@@ -844,15 +837,11 @@ struct MessageView: View {
         Button(action: copyMessageToClipboard) {
             Image(systemName: "doc.on.doc")
                 .font(.system(size: 12))
-                .foregroundColor(colorScheme == .dark ?
-                                 Color.white.opacity(0.9) :
-                                 Color.black.opacity(0.8))
+                .foregroundColor(Color.white.opacity(0.9))
                 .padding(6)
                 .background(
                     Circle()
-                        .fill(colorScheme == .dark ?
-                              Color.gray.opacity(0.3) :
-                              Color.white.opacity(0.9))
+                        .fill(Color.white.opacity(0.2))
                         .shadow(color: Color.black.opacity(0.15), radius: 1, x: 0, y: 1)
                 )
         }
@@ -868,7 +857,7 @@ struct MessageView: View {
                 searchRanges: ranges,
                 fontSize: fontSize + adjustedFontSize,
                 highlightColor: .yellow,
-                textColor: .primary,
+                textColor: .white,
                 currentMatchIndex: currentHighlightIndex
             )
             return Text(highlightedText.attributedString)

@@ -294,13 +294,11 @@ struct ChatView: View {
                         } label: {
                             Image(systemName: "chevron.down")
                                 .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(.white)
                                 .frame(width: 32, height: 32)
                                 .background(
                                     Circle()
-                                        .fill(colorScheme == .dark ?
-                                              Color(NSColor.windowBackgroundColor).opacity(0.9) :
-                                                Color.white.opacity(0.98))
+                                        .fill(Color.accentColor)
                                         .shadow(color: .black.opacity(0.15), radius: 4, x: 0, y: 2)
                                 )
                                 .overlay(
