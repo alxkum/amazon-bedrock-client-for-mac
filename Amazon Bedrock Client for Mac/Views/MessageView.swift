@@ -824,12 +824,61 @@ struct MessageView: View {
                 createHighlightedText(message.text, ranges: searchResult.ranges)
                     .font(.system(size: fontSize + adjustedFontSize))
             } else {
-                // Simple text without highlighting when no search
-                Text(message.text)
+                // Render inline markdown (bold, italic, code, links, strikethrough)
+                Text(userMarkdownString)
                     .font(.system(size: fontSize + adjustedFontSize))
-                    .foregroundColor(.white)
             }
         }
+    }
+
+    private var userMarkdownString: AttributedString {
+        let preprocessed = preprocessFencedCodeBlocks(message.text)
+        var str = (try? AttributedString(
+            markdown: preprocessed,
+            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        )) ?? AttributedString(message.text)
+        str.foregroundColor = .white
+        return str
+    }
+
+    /// Converts fenced code blocks into per-line inline code spans so the
+    /// inline-only markdown parser preserves line breaks within them.
+    private func preprocessFencedCodeBlocks(_ text: String) -> String {
+        guard let regex = try? NSRegularExpression(
+            pattern: "^```[^\\n]*\\n([\\s\\S]*?)^```",
+            options: .anchorsMatchLines
+        ) else { return text }
+
+        let nsText = text as NSString
+        let matches = regex.matches(in: text, range: NSRange(location: 0, length: nsText.length))
+        guard !matches.isEmpty else { return text }
+
+        var result = ""
+        var lastEnd = text.startIndex
+
+        for match in matches {
+            guard let fullRange = Range(match.range, in: text),
+                  let contentRange = Range(match.range(at: 1), in: text) else { continue }
+
+            result += text[lastEnd..<fullRange.lowerBound]
+
+            let content = String(text[contentRange])
+            let trimmed = content.hasSuffix("\n") ? String(content.dropLast()) : content
+            let lines = trimmed.split(separator: "\n", omittingEmptySubsequences: false)
+            result += lines.map { line -> String in
+                if line.isEmpty { return "" }
+                // Use double-backtick delimiters if the line contains backticks
+                if line.contains("`") {
+                    return "`` \(line) ``"
+                }
+                return "`\(line)`"
+            }.joined(separator: "\n")
+
+            lastEnd = fullRange.upperBound
+        }
+
+        result += text[lastEnd...]
+        return result
     }
 
     // Extract copy button to a separate computed property
