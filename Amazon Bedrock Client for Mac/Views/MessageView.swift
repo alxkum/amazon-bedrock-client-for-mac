@@ -1054,7 +1054,17 @@ struct HTMLStringView: NSViewRepresentable {
         
         context.coordinator.searchRanges = searchRanges
     }
-    
+
+    static func dismantleNSView(_ nsView: WKWebView, coordinator: Coordinator) {
+        coordinator.scrollToMatchNotification?.cancel()
+        coordinator.scrollToMatchNotification = nil
+        nsView.stopLoading()
+        nsView.navigationDelegate = nil
+        nsView.configuration.userContentController.removeScriptMessageHandler(forName: "copyHandler")
+        nsView.configuration.userContentController.removeScriptMessageHandler(forName: "searchHandler")
+        nsView.configuration.userContentController.removeAllScriptMessageHandlers()
+    }
+
     private func addSearchHighlights(to html: String) -> String {
         guard !searchRanges.isEmpty else { return html }
         
@@ -1095,7 +1105,7 @@ struct HTMLStringView: NSViewRepresentable {
         var parent: HTMLStringView
         var searchRanges: [NSRange] = []
         var lastLoadedContent: String = "" // Track last loaded content to prevent unnecessary reloads
-        private var scrollToMatchNotification: AnyCancellable?
+        fileprivate var scrollToMatchNotification: AnyCancellable?
         
         init(_ parent: HTMLStringView) {
             self.parent = parent
