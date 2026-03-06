@@ -37,6 +37,8 @@ struct ChatView: View {
     @State private var isAtBottom: Bool = true
     @State private var isSearchActive: Bool = false // Add search state tracking
     @State private var userMessageOffsets: [Int: CGFloat] = [:]
+    @State private var isInitialLoad: Bool = true
+    @State private var initialScrollTask: Task<Void, Never>? = nil
     
     // Font size adjustment state
     @AppStorage("adjustedFontSize") private var adjustedFontSize: Int = -1
@@ -213,6 +215,19 @@ struct ChatView: View {
                     enhancedScrollToBottomButton(offsets: userMessageOffsets, proxy: proxy)
                 }
                 .onPreferenceChange(BottomAnchorPreferenceKey.self) { bottomY in
+                    guard !isInitialLoad else {
+                        // During initial load: re-scroll to bottom on every height change.
+                        // Do NOT set isInitialLoad = false here — the .task owns that after 500ms.
+                        // This corrects for WebViews that finish loading after a previous scroll.
+                        initialScrollTask?.cancel()
+                        initialScrollTask = Task { @MainActor in
+                            try? await Task.sleep(nanoseconds: 50_000_000) // 50 ms settle
+                            guard !Task.isCancelled else { return }
+                            proxy.scrollTo(Int.max, anchor: .bottom)
+                            isAtBottom = true
+                        }
+                        return
+                    }
                     handleBottomAnchorChange(bottomY, containerHeight: outerGeo.size.height)
                 }
                 .onPreferenceChange(UserMessageOffsetsKey.self) { offsets in
@@ -260,8 +275,10 @@ struct ChatView: View {
         .modifier(ScrollEdgeEffectModifier())
         .task {
             try? await Task.sleep(nanoseconds: 500_000_000)
-            proxy.scrollTo(Int.max, anchor: .bottom)
+            // End the initial-load window unconditionally; final scroll corrects any last drift
             isAtBottom = true
+            isInitialLoad = false
+            proxy.scrollTo(Int.max, anchor: .bottom)
         }
     }
     
@@ -498,6 +515,7 @@ struct ChatView: View {
     }
     
     private func handleBottomAnchorChange(_ bottomY: CGFloat, containerHeight: CGFloat) {
+        guard !isInitialLoad else { return }
         let threshold: CGFloat = 50
         isAtBottom = (bottomY <= containerHeight + threshold)
     }
