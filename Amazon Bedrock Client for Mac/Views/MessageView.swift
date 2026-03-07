@@ -1009,7 +1009,8 @@ struct HTMLStringView: NSViewRepresentable {
     let searchRanges: [NSRange]
     @Binding var dynamicHeight: CGFloat
     @State private var scrollToMatchNotification: AnyCancellable?
-    
+    @SwiftUI.Environment(\.webViewLoadTracker) private var loadTracker
+
     init(htmlContent: String, fontSize: CGFloat, searchRanges: [NSRange] = [], dynamicHeight: Binding<CGFloat>) {
         self.htmlContent = htmlContent
         self.fontSize = fontSize
@@ -1021,25 +1022,31 @@ struct HTMLStringView: NSViewRepresentable {
         let config = WKWebViewConfiguration()
         config.suppressesIncrementalRendering = true
         config.mediaTypesRequiringUserActionForPlayback = []
-        
+
         // Set up message handler for copy action
         config.userContentController.add(context.coordinator, name: "copyHandler")
         config.userContentController.add(context.coordinator, name: "searchHandler")
-        
+
         let webView = CustomWKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
         webView.setValue(false, forKey: "drawsBackground")
-        
+
         // Disable WKWebView's scrolling
         if let scrollView = webView.enclosingScrollView {
             scrollView.hasVerticalScroller = false
             scrollView.verticalScrollElasticity = .none
             scrollView.scrollerStyle = .overlay
         }
-        
+
         // Set up scroll to match notification
         context.coordinator.setupScrollToMatchNotification(webView: webView)
-        
+
+        // Register with load tracker for initial-load overlay
+        if let tracker = loadTracker {
+            tracker.register()
+            context.coordinator.loadTracker = tracker
+        }
+
         return webView
     }
     
@@ -1056,6 +1063,10 @@ struct HTMLStringView: NSViewRepresentable {
     }
 
     static func dismantleNSView(_ nsView: WKWebView, coordinator: Coordinator) {
+        // If registered but never completed, unblock the tracker
+        coordinator.loadTracker?.markCompleted()
+        coordinator.loadTracker = nil
+
         coordinator.scrollToMatchNotification?.cancel()
         coordinator.scrollToMatchNotification = nil
         nsView.stopLoading()
@@ -1106,7 +1117,8 @@ struct HTMLStringView: NSViewRepresentable {
         var searchRanges: [NSRange] = []
         var lastLoadedContent: String = "" // Track last loaded content to prevent unnecessary reloads
         fileprivate var scrollToMatchNotification: AnyCancellable?
-        
+        var loadTracker: WebViewLoadTracker?
+
         init(_ parent: HTMLStringView) {
             self.parent = parent
         }
@@ -1210,10 +1222,13 @@ struct HTMLStringView: NSViewRepresentable {
                 }
                 getContentHeight();
             """) { (result, error) in
-                if let height = result as? CGFloat {
-                    DispatchQueue.main.async {
+                DispatchQueue.main.async {
+                    if let height = result as? CGFloat {
                         self.parent.dynamicHeight = height
                     }
+                    // Signal load completion once per WebView
+                    self.loadTracker?.markCompleted()
+                    self.loadTracker = nil
                 }
             }
         }
