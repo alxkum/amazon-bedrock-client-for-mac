@@ -77,6 +77,7 @@ struct ChatView: View {
     @SwiftUI.Environment(\.colorScheme) private var colorScheme: ColorScheme
     
     @State private var isAtBottom: Bool = true
+    @State private var isAtTop: Bool = true
     @State private var isSearchActive: Bool = false // Add search state tracking
     @State private var userMessageOffsets: [Int: CGFloat] = [:]
     @State private var isInitialLoad: Bool = true
@@ -291,6 +292,8 @@ struct ChatView: View {
                 }
                 .onPreferenceChange(UserMessageOffsetsKey.self) { offsets in
                     userMessageOffsets = offsets
+                    let hasMessageAbove = offsets.values.contains { $0 < 0 }
+                    isAtTop = !hasMessageAbove
                 }
                 .onChange(of: searchResult) { _, newResult in
                     jumpToFirstMatch(newResult, proxy: proxy)
@@ -361,49 +364,88 @@ struct ChatView: View {
         offsets: [Int: CGFloat],
         proxy: ScrollViewProxy
     ) -> some View {
-        Group {
-            if !isAtBottom {
-                VStack {
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        Button {
-                            let topMargin: CGFloat = 80
-                            let nextUserMsg = offsets
-                                .filter { $0.value > topMargin }
-                                .min(by: { $0.value < $1.value })
+        let showUpButton = !isAtTop
+        let showDownButton = !isAtBottom
+        let showContainer = showUpButton || showDownButton
 
-                            if let next = nextUserMsg {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                    proxy.scrollTo(next.key, anchor: .top)
+        return Group {
+            if showContainer {
+                HStack {
+                    Spacer()
+                    VStack(spacing: 8) {
+                            // Chevron-up button
+                            Button {
+                                let prevUserMsg = offsets
+                                    .filter { $0.value < 0 }
+                                    .max(by: { $0.value < $1.value })
+
+                                if let prev = prevUserMsg {
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        proxy.scrollTo(prev.key, anchor: .top)
+                                    }
                                 }
-                            } else {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                    proxy.scrollTo(Int.max, anchor: .bottom)
-                                    isAtBottom = true
-                                }
+                            } label: {
+                                Image(systemName: "chevron.up")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 32, height: 32)
+                                    .background(
+                                        Circle()
+                                            .fill(Color.accentColor)
+                                            .shadow(color: .black.opacity(0.15), radius: 4, x: 0, y: 2)
+                                    )
+                                    .overlay(
+                                        Circle()
+                                            .strokeBorder(Color.gray.opacity(0.2), lineWidth: 0.5)
+                                    )
                             }
-                        } label: {
-                            Image(systemName: "chevron.down")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(.white)
-                                .frame(width: 32, height: 32)
-                                .background(
-                                    Circle()
-                                        .fill(Color.accentColor)
-                                        .shadow(color: .black.opacity(0.15), radius: 4, x: 0, y: 2)
-                                )
-                                .overlay(
-                                    Circle()
-                                        .strokeBorder(Color.gray.opacity(0.2), lineWidth: 0.5)
-                                )
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        .contentShape(Circle())
-                        .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
-                        Spacer()
+                            .buttonStyle(PlainButtonStyle())
+                            .contentShape(Circle())
+                            .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+                            .opacity(showUpButton ? 1 : 0)
+                            .disabled(!showUpButton)
+                            .allowsHitTesting(showUpButton)
+
+                            // Chevron-down button
+                            Button {
+                                let topMargin: CGFloat = 80
+                                let nextUserMsg = offsets
+                                    .filter { $0.value > topMargin }
+                                    .min(by: { $0.value < $1.value })
+
+                                if let next = nextUserMsg {
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        proxy.scrollTo(next.key, anchor: .top)
+                                    }
+                                } else {
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        proxy.scrollTo(Int.max, anchor: .bottom)
+                                        isAtBottom = true
+                                    }
+                                }
+                            } label: {
+                                Image(systemName: "chevron.down")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 32, height: 32)
+                                    .background(
+                                        Circle()
+                                            .fill(Color.accentColor)
+                                            .shadow(color: .black.opacity(0.15), radius: 4, x: 0, y: 2)
+                                    )
+                                    .overlay(
+                                        Circle()
+                                            .strokeBorder(Color.gray.opacity(0.2), lineWidth: 0.5)
+                                    )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            .contentShape(Circle())
+                            .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+                            .opacity(showDownButton ? 1 : 0)
+                            .disabled(!showDownButton)
+                            .allowsHitTesting(showDownButton)
                     }
-                    .padding(.bottom, 16)
+                    .padding(.trailing, 16)
                 }
                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
             }
