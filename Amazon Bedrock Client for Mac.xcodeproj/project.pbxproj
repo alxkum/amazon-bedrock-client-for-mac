@@ -70,7 +70,10 @@
 		79F53C872E7B08BE00F129F4 /* QuickAccessWindowManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F53C862E7B08BB00F129F4 /* QuickAccessWindowManager.swift */; };
 		79F53C892E7B0B3800F129F4 /* QuickAccessView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F53C882E7B0B3800F129F4 /* QuickAccessView.swift */; };
 		79F53C8B2E7B0DBA00F129F4 /* HotkeyRecorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F53C8A2E7B0DBA00F129F4 /* HotkeyRecorderView.swift */; };
-		79FD1C262C3777180009E50F /* Markdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79FD1C252C3777180009E50F /* Markdown.swift */; };
+		79B4C1042F0B5A0000A1D2E3 /* NativeMarkdownView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79B4C10A2F0B5A0000A1D2E3 /* NativeMarkdownView.swift */; };
+		79B4C1112F0B5A0000A1D2E3 /* MarkdownAttributedStringBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79B4C1122F0B5A0000A1D2E3 /* MarkdownAttributedStringBuilder.swift */; };
+		79B4C1062F0B5A0000A1D2E3 /* MarkdownInlineRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79B4C10C2F0B5A0000A1D2E3 /* MarkdownInlineRenderer.swift */; };
+		79B4C1092F0B5A0000A1D2E3 /* HighlightrManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79B4C10F2F0B5A0000A1D2E3 /* HighlightrManager.swift */; };
 		79FDE2592DFBF410003960BC /* ModelSelectorDropdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79FDE2582DFBF410003960BC /* ModelSelectorDropdown.swift */; };
 		79FDE25B2DFBF456003960BC /* InferenceConfigDropdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79FDE25A2DFBF456003960BC /* InferenceConfigDropdown.swift */; };
 		79FF2B332D925EDB0075249D /* MCPManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79FF2B322D925ED10075249D /* MCPManager.swift */; };
@@ -157,7 +160,10 @@
 		79F53C862E7B08BB00F129F4 /* QuickAccessWindowManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickAccessWindowManager.swift; sourceTree = "<group>"; };
 		79F53C882E7B0B3800F129F4 /* QuickAccessView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickAccessView.swift; sourceTree = "<group>"; };
 		79F53C8A2E7B0DBA00F129F4 /* HotkeyRecorderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyRecorderView.swift; sourceTree = "<group>"; };
-		79FD1C252C3777180009E50F /* Markdown.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Markdown.swift; sourceTree = "<group>"; };
+		79B4C10A2F0B5A0000A1D2E3 /* NativeMarkdownView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMarkdownView.swift; sourceTree = "<group>"; };
+		79B4C1122F0B5A0000A1D2E3 /* MarkdownAttributedStringBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownAttributedStringBuilder.swift; sourceTree = "<group>"; };
+		79B4C10C2F0B5A0000A1D2E3 /* MarkdownInlineRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownInlineRenderer.swift; sourceTree = "<group>"; };
+		79B4C10F2F0B5A0000A1D2E3 /* HighlightrManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HighlightrManager.swift; sourceTree = "<group>"; };
 		79FDE2582DFBF410003960BC /* ModelSelectorDropdown.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelSelectorDropdown.swift; sourceTree = "<group>"; };
 		79FDE25A2DFBF456003960BC /* InferenceConfigDropdown.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InferenceConfigDropdown.swift; sourceTree = "<group>"; };
 		79FF2B322D925ED10075249D /* MCPManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPManager.swift; sourceTree = "<group>"; };
@@ -282,7 +288,6 @@
 				79C7F5EC2AD282EE008FBB35 /* EnvironmentExtensions.swift */,
 				79610DC82AD22A2F00993D09 /* FirstResponderTextField.swift */,
 				79D6E6A22C99BFF300314D86 /* GithubTheme.swift */,
-				79FD1C252C3777180009E50F /* Markdown.swift */,
 				79AF97542D9E332500313A4C /* NSImage.swift */,
 				EDAE4CC52B3D943E99083226 /* SearchEngine.swift */,
 			);
@@ -313,9 +318,21 @@
 			path = "Preview Content";
 			sourceTree = "<group>";
 		};
+		79B4C1102F0B5A0000A1D2E3 /* Markdown */ = {
+			isa = PBXGroup;
+			children = (
+				79B4C10A2F0B5A0000A1D2E3 /* NativeMarkdownView.swift */,
+				79B4C1122F0B5A0000A1D2E3 /* MarkdownAttributedStringBuilder.swift */,
+				79B4C10C2F0B5A0000A1D2E3 /* MarkdownInlineRenderer.swift */,
+				79B4C10F2F0B5A0000A1D2E3 /* HighlightrManager.swift */,
+			);
+			path = Markdown;
+			sourceTree = "<group>";
+		};
 		79610DCF2AD22A2F00993D09 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				79B4C1102F0B5A0000A1D2E3 /* Markdown */,
 				79EC4F342EE2033A00BF73D9 /* NovaReelConfigDropdown.swift */,
 				79EC4F302EE1F1A300BF73D9 /* StabilityAIServicesDropdown.swift */,
 				79EC4F2E2EE19B8B00BF73D9 /* SharedImageConfigComponents.swift */,
@@ -371,6 +388,7 @@
 				792D8E642DDFE55E00BB1C01 /* MCP */,
 				79A305682EB05A2200DAE32F /* MarkdownKit */,
 				79EC4F382EE2079A00BF73D9 /* AWSS3 */,
+				79B4C1032F0B5A0000A1D2E3 /* Highlightr */,
 			);
 			productName = "Amazon Bedrock Client for Mac";
 			productReference = 7907BE942ACD87A100C4D500 /* Amazon Bedrock Debug.app */;
@@ -449,6 +467,7 @@
 				798A9CE42AD3AB2E00E9D039 /* XCRemoteSwiftPackageReference "vapor" */,
 				792D8E632DDFE55E00BB1C01 /* XCRemoteSwiftPackageReference "swift-sdk" */,
 				79A305672EB05A2200DAE32F /* XCRemoteSwiftPackageReference "swift-markdownkit" */,
+				79B4C1012F0B5A0000A1D2E3 /* XCRemoteSwiftPackageReference "Highlightr" */,
 			);
 			productRefGroup = 7907BE952ACD87A100C4D500 /* Products */;
 			projectDirPath = "";
@@ -507,7 +526,10 @@
 				79FF2B332D925EDB0075249D /* MCPManager.swift in Sources */,
 				79FF2B372D925F320075249D /* MCPOAuthManager.swift in Sources */,
 				7937953D2B46CAF1000C94A5 /* UpdateManager.swift in Sources */,
-				79FD1C262C3777180009E50F /* Markdown.swift in Sources */,
+				79B4C1042F0B5A0000A1D2E3 /* NativeMarkdownView.swift in Sources */,
+				79B4C1112F0B5A0000A1D2E3 /* MarkdownAttributedStringBuilder.swift in Sources */,
+				79B4C1062F0B5A0000A1D2E3 /* MarkdownInlineRenderer.swift in Sources */,
+				79B4C1092F0B5A0000A1D2E3 /* HighlightrManager.swift in Sources */,
 				79EC4F352EE2033A00BF73D9 /* NovaReelConfigDropdown.swift in Sources */,
 				79AF97572D9E33C400313A4C /* ImagePreview.swift in Sources */,
 				79610DE12AD22A2F00993D09 /* ChatModel.swift in Sources */,
@@ -977,6 +999,14 @@
 				minimumVersion = 1.2.58;
 			};
 		};
+		79B4C1012F0B5A0000A1D2E3 /* XCRemoteSwiftPackageReference "Highlightr" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/raspu/Highlightr";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.2.1;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -1024,6 +1054,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 79E59FFC2ACDA88700DC6657 /* XCRemoteSwiftPackageReference "aws-sdk-swift" */;
 			productName = AWSS3;
+		};
+		79B4C1032F0B5A0000A1D2E3 /* Highlightr */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 79B4C1012F0B5A0000A1D2E3 /* XCRemoteSwiftPackageReference "Highlightr" */;
+			productName = Highlightr;
 		};
 /* End XCSwiftPackageProductDependency section */
 

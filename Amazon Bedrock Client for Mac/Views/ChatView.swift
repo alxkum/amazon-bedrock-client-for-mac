@@ -8,48 +8,6 @@
 import SwiftUI
 import Combine
 
-// MARK: - WebView Load Tracking
-
-@MainActor
-final class WebViewLoadTracker: ObservableObject {
-    @Published private(set) var allLoaded: Bool = false
-    private(set) var registeredCount: Int = 0
-    private var completedCount: Int = 0
-    private var isTracking: Bool = false
-
-    func startTracking() {
-        registeredCount = 0
-        completedCount = 0
-        allLoaded = false
-        isTracking = true
-    }
-
-    func register() {
-        guard isTracking else { return }
-        registeredCount += 1
-    }
-
-    func markCompleted() {
-        guard isTracking else { return }
-        completedCount += 1
-        if completedCount >= registeredCount {
-            isTracking = false
-            allLoaded = true
-        }
-    }
-}
-
-private struct WebViewLoadTrackerKey: EnvironmentKey {
-    static let defaultValue: WebViewLoadTracker? = nil
-}
-
-extension EnvironmentValues {
-    var webViewLoadTracker: WebViewLoadTracker? {
-        get { self[WebViewLoadTrackerKey.self] }
-        set { self[WebViewLoadTrackerKey.self] = newValue }
-    }
-}
-
 struct BottomAnchorPreferenceKey: PreferenceKey {
     typealias Value = CGFloat
     nonisolated(unsafe) static var defaultValue: CGFloat = 0
@@ -83,7 +41,6 @@ struct ChatView: View {
     @State private var isInitialLoad: Bool = true
     @State private var initialScrollTask: Task<Void, Never>? = nil
     @State private var showLoadingOverlay: Bool = false
-    @StateObject private var webViewLoadTracker = WebViewLoadTracker()
     
     // Font size adjustment state
     @AppStorage("adjustedFontSize") private var adjustedFontSize: Int = -1
@@ -144,7 +101,6 @@ struct ChatView: View {
                     .zIndex(20)
             }
         }
-        .environment(\.webViewLoadTracker, webViewLoadTracker)
         .onDisappear {
             showLoadingOverlay = false
             initialScrollTask?.cancel()
@@ -156,7 +112,6 @@ struct ChatView: View {
             // Show loading overlay when opening a chat with existing messages
             if !viewModel.messages.isEmpty {
                 showLoadingOverlay = true
-                webViewLoadTracker.startTracking()
             }
 
             // Set up usage handler for toast notifications
@@ -278,7 +233,6 @@ struct ChatView: View {
                 .onPreferenceChange(BottomAnchorPreferenceKey.self) { bottomY in
                     guard !isInitialLoad else {
                         // During initial load: re-scroll to bottom on every height change.
-                        // This corrects for WebViews that finish loading after a previous scroll.
                         initialScrollTask?.cancel()
                         initialScrollTask = Task { @MainActor in
                             try? await Task.sleep(nanoseconds: 50_000_000) // 50 ms settle
@@ -300,11 +254,6 @@ struct ChatView: View {
                 }
                 .onChange(of: currentMatchIndex) { _, idx in
                     jumpToMatchIndex(idx, proxy: proxy)
-                }
-                .onChange(of: webViewLoadTracker.allLoaded) { _, loaded in
-                    if loaded {
-                        finishInitialLoad(proxy: proxy)
-                    }
                 }
             }
         }
@@ -341,22 +290,10 @@ struct ChatView: View {
         }
         .modifier(ScrollEdgeEffectModifier())
         .task {
-            // Short wait for WebViews to register during initial layout
-            try? await Task.sleep(nanoseconds: 50_000_000)
+            // Native views render synchronously — short layout settle then finish
+            try? await Task.sleep(nanoseconds: 100_000_000) // 100 ms
             guard !Task.isCancelled else { return }
-
-            // If no WebViews registered (e.g. only user messages), finish immediately
-            if webViewLoadTracker.registeredCount == 0 {
-                finishInitialLoad(proxy: proxy)
-                return
-            }
-
-            // Safety net: if WebView callbacks never arrive, don't block forever
-            try? await Task.sleep(nanoseconds: 3_000_000_000)
-            guard !Task.isCancelled else { return }
-            if isInitialLoad {
-                finishInitialLoad(proxy: proxy)
-            }
+            finishInitialLoad(proxy: proxy)
         }
     }
     
