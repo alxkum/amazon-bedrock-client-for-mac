@@ -8,14 +8,14 @@
 import Foundation
 import AWSBedrock
 
-class ChatModel: ObservableObject, Identifiable, Equatable, Hashable, @unchecked Sendable {
+class ChatModel: Identifiable, Equatable, Hashable, @unchecked Sendable {
     var id: String
     var chatId: String
     var name: String
-    @Published var title: String
+    var title: String
     var description: String
     let provider: String
-    @Published var lastMessageDate: Date
+    var lastMessageDate: Date
     var isManuallyRenamed: Bool = false // Track if user manually renamed this chat
     
     init(id: String, chatId: String, name: String, title: String, description: String, provider: String, lastMessageDate: Date, isManuallyRenamed: Bool = false) {

@@ -209,8 +209,8 @@ struct SidebarView: View {
     
     @State private var showingClearChatAlert = false
     @State private var organizedChatModels: [String: [ChatModel]] = [:]
-    @State private var selectionId = UUID()
-    @State private var hoverStates: [String: Bool] = [:]
+    @State private var cachedSortedDateKeys: [String] = []
+    @State private var cachedFilteredChatModels: [String: [ChatModel]] = [:]
     @State private var searchText: String = ""
     @State private var searchIndex = ChatSearchIndex.shared
     @State private var searchResults: [String] = []
@@ -223,12 +223,7 @@ struct SidebarView: View {
     @Environment(\.colorScheme) private var colorScheme
     
     // Performance optimization properties
-    @State private var lastSortTime: Date = Date(timeIntervalSince1970: 0)
     @State private var sortingInProgress: Bool = false
-    private let sortingThrottleInterval: TimeInterval = 0.5 // Minimum interval between sorting operations
-    
-    // Timer to periodically update chat dates - reduced frequency
-    let timer = Timer.publish(every: 10, on: .main, in: .common).autoconnect()
     
     private let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -238,17 +233,32 @@ struct SidebarView: View {
     
 
     
-    // Keys sorted by date for grouping chats
-    private var sortedDateKeys: [String] {
-        // Create a mapping of display keys to actual dates for proper sorting
+    /// Recomputes the cached sorted date keys and filtered chat models
+    private func recomputeCachedProperties() {
+        // Compute filtered chat models
+        let filtered: [String: [ChatModel]]
+        if searchText.isEmpty {
+            filtered = organizedChatModels
+        } else {
+            var result: [String: [ChatModel]] = [:]
+            for (dateKey, chats) in organizedChatModels {
+                let filteredChats = chats.filter { chat in
+                    searchResults.contains(chat.chatId)
+                }
+                if !filteredChats.isEmpty {
+                    result[dateKey] = filteredChats
+                }
+            }
+            filtered = result
+        }
+        cachedFilteredChatModels = filtered
+
+        // Compute sorted date keys from the filtered models
         var keyToDateMap: [String: Date] = [:]
-        
-        for key in organizedChatModels.keys {
-            // Try to parse the key back to a date
+        for key in filtered.keys {
             if let date = dateFormatter.date(from: key) {
                 keyToDateMap[key] = date
             } else {
-                // Handle special cases like "Today" and "Yesterday"
                 let calendar = Calendar.current
                 if key == "Today" {
                     keyToDateMap[key] = calendar.startOfDay(for: Date())
@@ -259,34 +269,11 @@ struct SidebarView: View {
                 }
             }
         }
-        
-        // Sort by actual dates (most recent first)
-        return keyToDateMap.keys.sorted { key1, key2 in
+        cachedSortedDateKeys = keyToDateMap.keys.sorted { key1, key2 in
             let date1 = keyToDateMap[key1] ?? Date.distantPast
             let date2 = keyToDateMap[key2] ?? Date.distantPast
             return date1 > date2
         }
-    }
-    
-    // Filtered chat models based on search results
-    private var filteredChatModels: [String: [ChatModel]] {
-        if searchText.isEmpty {
-            return organizedChatModels
-        }
-        
-        var filtered: [String: [ChatModel]] = [:]
-        
-        for (dateKey, chats) in organizedChatModels {
-            let filteredChats = chats.filter { chat in
-                searchResults.contains(chat.chatId)
-            }
-            
-            if !filteredChats.isEmpty {
-                filtered[dateKey] = filteredChats
-            }
-        }
-        
-        return filtered
     }
     
     // MARK: - Body
@@ -299,12 +286,6 @@ struct SidebarView: View {
                 .padding(.bottom, 4)
             
             chatListView
-                .onReceive(timer) { _ in
-                    // Only sort if enough time has passed since last update
-                    if Date().timeIntervalSince(lastSortTime) > 10 {
-                        throttledOrganizeChatsByDate()
-                    }
-                }
                 .onChange(of: appCoordinator.shouldCreateNewChat) { _, newValue in
                     if newValue {
                         // Prevent duplicate chat creation
@@ -323,7 +304,6 @@ struct SidebarView: View {
                         appCoordinator.shouldDeleteChat = false
                     }
                 }
-                .id(selectionId)
                 .listStyle(SidebarListStyle())
                 .frame(minWidth: 100, idealWidth: 250, maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -363,6 +343,7 @@ struct SidebarView: View {
                 }
                 
                 self.organizedChatModels = newOrganizedModels
+                self.recomputeCachedProperties()
                 // NO indexing here - only when user searches
             }
         }
@@ -431,8 +412,8 @@ struct SidebarView: View {
     /// Enhanced chat list view
     private var chatListView: some View {
         List {
-            ForEach(sortedDateKeys, id: \.self) { dateKey in
-                if let chats = filteredChatModels[dateKey], !chats.isEmpty {
+            ForEach(cachedSortedDateKeys, id: \.self) { dateKey in
+                if let chats = cachedFilteredChatModels[dateKey], !chats.isEmpty {
                     Section(header:
                                 Text(dateKey)
                         .font(.system(size: 12, weight: .medium))
@@ -481,101 +462,127 @@ struct SidebarView: View {
     }
     
     // MARK: - Chat Row View
-    
+
     /// Creates an enhanced view for an individual chat row
     func chatRowView(for chat: ChatModel) -> some View {
-        let isHovered = hoverStates[chat.chatId, default: false]
-        let isSelected = selection == .chat(chat)
-        let isRenaming = renamingChatId == chat.chatId
-        
-        return HStack(spacing: 12) {
-            // Chat title and model name
-            VStack(alignment: .leading, spacing: 3) {
-                if isRenaming {
-                    TextField("Chat title", text: $renameText)
-                        .font(.system(size: 13, weight: .medium))
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .focused($renamingTextfieldFocused)
-                        .onSubmit {
-                            finishRenaming(chat)
-                        }
-                        .onExitCommand {
-                            cancelRenaming()
-                        }
-                        .onChange(of: renamingTextfieldFocused) { _, newValue in
-                            if (!newValue) {
-                                finishRenaming(chat)
+        ChatRowView(
+            chat: chat,
+            isSelected: selection == .chat(chat),
+            isRenaming: renamingChatId == chat.chatId,
+            isLoading: chatManager.getIsLoading(for: chat.chatId),
+            renameText: $renameText,
+            renamingTextfieldFocused: $renamingTextfieldFocused,
+            onSelect: { selection = .chat(chat) },
+            onStartRenaming: { startRenaming(chat) },
+            onFinishRenaming: { finishRenaming(chat) },
+            onCancelRenaming: { cancelRenaming() },
+            onCopyChat: { copyEntireChat(chat) },
+            onExportChat: { exportChatAsTextFile(chat) },
+            onDeleteChat: { deleteChat(chat) }
+        )
+    }
+    
+    // MARK: - Chat Row Subview (owns its own hover state)
+
+    struct ChatRowView: View {
+        let chat: ChatModel
+        let isSelected: Bool
+        let isRenaming: Bool
+        let isLoading: Bool
+        @Binding var renameText: String
+        var renamingTextfieldFocused: FocusState<Bool>.Binding
+        let onSelect: () -> Void
+        let onStartRenaming: () -> Void
+        let onFinishRenaming: () -> Void
+        let onCancelRenaming: () -> Void
+        let onCopyChat: () -> Void
+        let onExportChat: () -> Void
+        let onDeleteChat: () -> Void
+
+        @State private var isHovered: Bool = false
+
+        var body: some View {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    if isRenaming {
+                        TextField("Chat title", text: $renameText)
+                            .font(.system(size: 13, weight: .medium))
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .focused(renamingTextfieldFocused)
+                            .onSubmit {
+                                onFinishRenaming()
                             }
-                        }
-                } else {
-                    Text(chat.title)
-                        .font(.system(size: 13, weight: .medium))
+                            .onExitCommand {
+                                onCancelRenaming()
+                            }
+                            .onChange(of: renamingTextfieldFocused.wrappedValue) { _, newValue in
+                                if !newValue {
+                                    onFinishRenaming()
+                                }
+                            }
+                    } else {
+                        Text(chat.title)
+                            .font(.system(size: 13, weight: .medium))
+                            .lineLimit(1)
+                    }
+
+                    Text(chat.name)
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
                         .lineLimit(1)
                 }
-                
-                Text(chat.name)
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
-            }
-            
-            Spacer()
-            
-            // Loading indicator as animated dots
-            if chatManager.getIsLoading(for: chat.chatId) {
-                LoadingDotsView()
-                    .frame(width: 30, height: 20)
-            }
-        }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(isSelected ?
-                      Color.accentColor.opacity(0.18) :
-                        (isHovered ? Color.gray.opacity(0.08) : Color.clear))
-        )
-        .modifier(ChatRowBorderModifier(isSelected: isSelected))
-        .contentShape(Rectangle())
-        .onHover { hover in
-            if !isRenaming {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    hoverStates[chat.chatId] = hover
-                }
-                if hover {
-                    NSCursor.pointingHand.set()
-                } else {
-                    NSCursor.arrow.set()
+
+                Spacer()
+
+                if isLoading {
+                    LoadingDotsView()
+                        .frame(width: 30, height: 20)
                 }
             }
-        }
-        .contextMenu {
-            // Edit
-            Button("Rename") {
-                startRenaming(chat)
+            .padding(.vertical, 8)
+            .padding(.horizontal, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ?
+                          Color.accentColor.opacity(0.18) :
+                            (isHovered ? Color.gray.opacity(0.08) : Color.clear))
+            )
+            .modifier(ChatRowBorderModifier(isSelected: isSelected))
+            .contentShape(Rectangle())
+            .onHover { hover in
+                if !isRenaming {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isHovered = hover
+                    }
+                    if hover {
+                        NSCursor.pointingHand.set()
+                    } else {
+                        NSCursor.arrow.set()
+                    }
+                }
             }
-            
-            // Copy & Export
-            Button("Copy Entire Chat") {
-                copyEntireChat(chat)
+            .contextMenu {
+                Button("Rename") {
+                    onStartRenaming()
+                }
+                Button("Copy Entire Chat") {
+                    onCopyChat()
+                }
+                Button("Export as Text File") {
+                    onExportChat()
+                }
+                Button("Delete", role: .destructive) {
+                    onDeleteChat()
+                }
             }
-            
-            Button("Export as Text File") {
-                exportChatAsTextFile(chat)
-            }
-            
-            // Delete
-            Button("Delete", role: .destructive) {
-                deleteChat(chat)
-            }
-        }
-        .onTapGesture {
-            if !isRenaming {
-                selection = .chat(chat)
+            .onTapGesture {
+                if !isRenaming {
+                    onSelect()
+                }
             }
         }
     }
-    
+
     // New loading dots animation view
     struct LoadingDotsView: View {
         @State private var dotCount = 1
@@ -613,9 +620,10 @@ struct SidebarView: View {
     private func performSearch() {
         // Cancel previous timer
         searchDebounceTimer?.invalidate()
-        
+
         if searchText.isEmpty {
             searchResults = []
+            recomputeCachedProperties()
             return
         }
         
@@ -655,6 +663,7 @@ struct SidebarView: View {
             await MainActor.run {
                 searchResults = results
                 isSearching = false
+                recomputeCachedProperties()
             }
         }
     }
@@ -685,7 +694,6 @@ struct SidebarView: View {
             // ChatManager already added the chat to its array, so we don't need to add it again
             // Just update the selection
             self.selection = .chat(newChat)
-            self.selectionId = UUID()
             
             // Mark that search index needs update for this new chat
             Task(priority: .background) {
@@ -739,53 +747,51 @@ struct SidebarView: View {
     // Incremental update: Add new chat to search index - removed as it's now handled by lazy loading
     // The search index will be updated when actually needed during search
     
-    // Throttled organization function (prevents multiple calls in short time)
-    private func throttledOrganizeChatsByDate() {
-        let now = Date()
-        if !sortingInProgress && now.timeIntervalSince(lastSortTime) > sortingThrottleInterval {
-            sortingInProgress = true
-            
-            // Move sorting work to background thread
-            Task(priority: .userInitiated) {
-                let calendar = Calendar.current
-                let sortedChats = self.chatManager.chats.sorted { $0.lastMessageDate > $1.lastMessageDate }
-                let groupedChats = Dictionary(grouping: sortedChats) { chat -> DateComponents in
-                    calendar.dateComponents([.year, .month, .day], from: chat.lastMessageDate)
+    // Organization function for sorting chats by date
+    private func organizeChatsByDate() {
+        guard !sortingInProgress else { return }
+        sortingInProgress = true
+
+        // Move sorting work to background thread
+        Task(priority: .userInitiated) {
+            let calendar = Calendar.current
+            let sortedChats = self.chatManager.chats.sorted { $0.lastMessageDate > $1.lastMessageDate }
+            let groupedChats = Dictionary(grouping: sortedChats) { chat -> DateComponents in
+                calendar.dateComponents([.year, .month, .day], from: chat.lastMessageDate)
+            }
+
+            let sortedDateComponents = groupedChats.keys.sorted {
+                if $0.year != $1.year {
+                    return $0.year! > $1.year!
+                } else if $0.month != $1.month {
+                    return $0.month! > $1.month!
+                } else {
+                    return $0.day! > $1.day!
                 }
-                
-                let sortedDateComponents = groupedChats.keys.sorted {
-                    if $0.year != $1.year {
-                        return $0.year! > $1.year! // Descending
-                    } else if $0.month != $1.month {
-                        return $0.month! > $1.month! // Descending
-                    } else {
-                        return $0.day! > $1.day! // Descending
+            }
+
+            var newOrganizedModels: [String: [ChatModel]] = [:]
+            for components in sortedDateComponents {
+                if let date = calendar.date(from: components) {
+                    let key = self.formatDate(date)
+                    if let chatsForDate = groupedChats[components] {
+                        newOrganizedModels[key] = chatsForDate
                     }
                 }
-                
-                var newOrganizedModels: [String: [ChatModel]] = [:]
-                for components in sortedDateComponents {
-                    if let date = calendar.date(from: components) {
-                        let key = self.formatDate(date)
-                        if let chatsForDate = groupedChats[components] {
-                            newOrganizedModels[key] = chatsForDate
-                        }
-                    }
-                }
-                
-                // UI updates on main thread
-                await MainActor.run {
-                    self.organizedChatModels = newOrganizedModels
-                    self.lastSortTime = Date()
-                    self.sortingInProgress = false
-                }
+            }
+
+            // UI updates on main thread
+            await MainActor.run {
+                self.organizedChatModels = newOrganizedModels
+                self.recomputeCachedProperties()
+                self.sortingInProgress = false
             }
         }
     }
     
     // Initial organization (run once at app startup)
     private func organizeChatsInitial() {
-        throttledOrganizeChatsByDate()
+        organizeChatsByDate()
         // Don't update search index here - it will be updated lazily when needed
     }
     
@@ -811,7 +817,7 @@ struct SidebarView: View {
             return
         }
         selection = chatManager.deleteChat(with: selectedChat.chatId)
-        throttledOrganizeChatsByDate()
+        organizeChatsByDate()
     }
     
     /// Returns the currently selected chat model, if any
@@ -837,16 +843,13 @@ struct SidebarView: View {
         }
         
         // For all other dates, use the standard format
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "MMMM dd, yyyy"
         return dateFormatter.string(from: date)
     }
     
     /// Deletes a specific chat
     private func deleteChat(_ chat: ChatModel) {
-        hoverStates[chat.chatId] = false
         selection = chatManager.deleteChat(with: chat.chatId)
-        throttledOrganizeChatsByDate() // Use optimized version
+        organizeChatsByDate()
     }
     
     /// Exports a chat history as a text file

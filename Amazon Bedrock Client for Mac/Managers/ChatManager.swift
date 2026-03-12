@@ -517,7 +517,6 @@ class ChatManager: ObservableObject {
     func setIsLoading(_ isLoading: Bool, for chatId: String) {
         DispatchQueue.main.async {
             self.chatIsLoading[chatId] = isLoading
-            self.objectWillChange.send()
         }
     }
     
