@@ -4,34 +4,33 @@
 //
 
 import AppKit
-import Highlightr
 
 final class HighlightrManager: @unchecked Sendable {
     static let shared = HighlightrManager()
 
-    private let highlightr: Highlightr?
+    private let highlighter: Highlighter?
     private let lock = NSLock()
 
     private init() {
-        highlightr = Highlightr()
+        highlighter = Highlighter()
     }
 
     func highlight(code: String, language: String?, fontSize: CGFloat, isDark: Bool) -> NSAttributedString {
         lock.lock()
         defer { lock.unlock() }
 
-        guard let highlightr = highlightr else {
+        guard let highlighter = highlighter else {
             return fallback(code: code, fontSize: fontSize, isDark: isDark)
         }
 
-        highlightr.setTheme(to: isDark ? "github-dark" : "github")
-        highlightr.theme.setCodeFont(.monospacedSystemFont(ofSize: fontSize, weight: .regular))
+        highlighter.setTheme(isDark ? "github-dark" : "github")
+        highlighter.theme.setCodeFont(.monospacedSystemFont(ofSize: fontSize, weight: .regular))
 
         let lang = (language ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        if !lang.isEmpty, let result = highlightr.highlight(code, as: lang) {
+        if !lang.isEmpty, let result = highlighter.highlight(code, as: lang) {
             return result
         }
-        if let result = highlightr.highlight(code) {
+        if let result = highlighter.highlight(code) {
             return result
         }
         return fallback(code: code, fontSize: fontSize, isDark: isDark)

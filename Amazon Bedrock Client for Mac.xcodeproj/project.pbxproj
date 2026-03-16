@@ -80,6 +80,13 @@
 		79FF2B352D925F2E0075249D /* MCPModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79FF2B342D925F280075249D /* MCPModels.swift */; };
 		79FF2B372D925F320075249D /* MCPOAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79FF2B362D925F300075249D /* MCPOAuthManager.swift */; };
 		EDAE4CC62B3D943E99083227 /* SearchEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDAE4CC52B3D943E99083226 /* SearchEngine.swift */; };
+		A1B2C3D40002000000000001 /* Highlighter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40001000000000001 /* Highlighter.swift */; };
+		A1B2C3D40002000000000002 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40001000000000002 /* Theme.swift */; };
+		A1B2C3D40002000000000003 /* Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40001000000000003 /* Extensions.swift */; };
+		A1B2C3D40002000000000004 /* HTMLUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40001000000000004 /* HTMLUtils.swift */; };
+		A1B2C3D40002000000000005 /* LineNumberData.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40001000000000005 /* LineNumberData.swift */; };
+		A1B2C3D40002000000000006 /* Shims.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40001000000000006 /* Shims.swift */; };
+		A1B2C3D40002000000000007 /* Assets in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40001000000000007 /* Assets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -170,6 +177,13 @@
 		79FF2B342D925F280075249D /* MCPModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPModels.swift; sourceTree = "<group>"; };
 		79FF2B362D925F300075249D /* MCPOAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPOAuthManager.swift; sourceTree = "<group>"; };
 		EDAE4CC52B3D943E99083226 /* SearchEngine.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SearchEngine.swift; sourceTree = "<group>"; };
+		A1B2C3D40001000000000001 /* Highlighter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Highlighter.swift; sourceTree = "<group>"; };
+		A1B2C3D40001000000000002 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		A1B2C3D40001000000000003 /* Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Extensions.swift; sourceTree = "<group>"; };
+		A1B2C3D40001000000000004 /* HTMLUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLUtils.swift; sourceTree = "<group>"; };
+		A1B2C3D40001000000000005 /* LineNumberData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineNumberData.swift; sourceTree = "<group>"; };
+		A1B2C3D40001000000000006 /* Shims.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shims.swift; sourceTree = "<group>"; };
+		A1B2C3D40001000000000007 /* Assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Assets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -239,6 +253,7 @@
 				79610DCD2AD22A2F00993D09 /* Preview Content */,
 				79610DC32AD22A2F00993D09 /* Utils */,
 				79610DCF2AD22A2F00993D09 /* Views */,
+				A1B2C3D40003000000000001 /* Vendor */,
 			);
 			path = "Amazon Bedrock Client for Mac";
 			sourceTree = "<group>";
@@ -362,6 +377,28 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		A1B2C3D40003000000000001 /* Vendor */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D40003000000000002 /* Highlighter */,
+			);
+			path = Vendor;
+			sourceTree = "<group>";
+		};
+		A1B2C3D40003000000000002 /* Highlighter */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D40001000000000007 /* Assets */,
+				A1B2C3D40001000000000003 /* Extensions.swift */,
+				A1B2C3D40001000000000001 /* Highlighter.swift */,
+				A1B2C3D40001000000000004 /* HTMLUtils.swift */,
+				A1B2C3D40001000000000005 /* LineNumberData.swift */,
+				A1B2C3D40001000000000006 /* Shims.swift */,
+				A1B2C3D40001000000000002 /* Theme.swift */,
+			);
+			path = Highlighter;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -388,7 +425,6 @@
 				792D8E642DDFE55E00BB1C01 /* MCP */,
 				79A305682EB05A2200DAE32F /* MarkdownKit */,
 				79EC4F382EE2079A00BF73D9 /* AWSS3 */,
-				79B4C1032F0B5A0000A1D2E3 /* Highlightr */,
 			);
 			productName = "Amazon Bedrock Client for Mac";
 			productReference = 7907BE942ACD87A100C4D500 /* Amazon Bedrock Debug.app */;
@@ -467,7 +503,6 @@
 				798A9CE42AD3AB2E00E9D039 /* XCRemoteSwiftPackageReference "vapor" */,
 				792D8E632DDFE55E00BB1C01 /* XCRemoteSwiftPackageReference "swift-sdk" */,
 				79A305672EB05A2200DAE32F /* XCRemoteSwiftPackageReference "swift-markdownkit" */,
-				79B4C1012F0B5A0000A1D2E3 /* XCRemoteSwiftPackageReference "Highlightr" */,
 			);
 			productRefGroup = 7907BE952ACD87A100C4D500 /* Products */;
 			projectDirPath = "";
@@ -489,6 +524,7 @@
 				79F2C4022EB0705A003F46E6 /* Bedrock.icon in Resources */,
 				79610DE42AD22A2F00993D09 /* Preview Assets.xcassets in Resources */,
 				79610DDB2AD22A2F00993D09 /* Assets.xcassets in Resources */,
+				A1B2C3D40002000000000007 /* Assets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -530,6 +566,12 @@
 				79B4C1112F0B5A0000A1D2E3 /* MarkdownAttributedStringBuilder.swift in Sources */,
 				79B4C1062F0B5A0000A1D2E3 /* MarkdownInlineRenderer.swift in Sources */,
 				79B4C1092F0B5A0000A1D2E3 /* HighlightrManager.swift in Sources */,
+				A1B2C3D40002000000000001 /* Highlighter.swift in Sources */,
+				A1B2C3D40002000000000002 /* Theme.swift in Sources */,
+				A1B2C3D40002000000000003 /* Extensions.swift in Sources */,
+				A1B2C3D40002000000000004 /* HTMLUtils.swift in Sources */,
+				A1B2C3D40002000000000005 /* LineNumberData.swift in Sources */,
+				A1B2C3D40002000000000006 /* Shims.swift in Sources */,
 				79EC4F352EE2033A00BF73D9 /* NovaReelConfigDropdown.swift in Sources */,
 				79AF97572D9E33C400313A4C /* ImagePreview.swift in Sources */,
 				79610DE12AD22A2F00993D09 /* ChatModel.swift in Sources */,
@@ -999,14 +1041,6 @@
 				minimumVersion = 1.2.58;
 			};
 		};
-		79B4C1012F0B5A0000A1D2E3 /* XCRemoteSwiftPackageReference "Highlightr" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/raspu/Highlightr";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.2.1;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -1054,11 +1088,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 79E59FFC2ACDA88700DC6657 /* XCRemoteSwiftPackageReference "aws-sdk-swift" */;
 			productName = AWSS3;
-		};
-		79B4C1032F0B5A0000A1D2E3 /* Highlightr */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 79B4C1012F0B5A0000A1D2E3 /* XCRemoteSwiftPackageReference "Highlightr" */;
-			productName = Highlightr;
 		};
 /* End XCSwiftPackageProductDependency section */
 
