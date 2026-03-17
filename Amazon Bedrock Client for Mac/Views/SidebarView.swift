@@ -501,6 +501,13 @@ struct SidebarView: View {
 
         @State private var isHovered: Bool = false
 
+        private static let timeFormatter: DateFormatter = {
+            let f = DateFormatter()
+            f.dateStyle = .none
+            f.timeStyle = .short
+            return f
+        }()
+
         var body: some View {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
@@ -526,7 +533,7 @@ struct SidebarView: View {
                             .lineLimit(1)
                     }
 
-                    Text(chat.displayName)
+                    Text("\(chat.lastMessageDate, formatter: Self.timeFormatter) · \(chat.displayName)")
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
                         .lineLimit(1)
