@@ -744,7 +744,7 @@ class ChatManager: ObservableObject {
         if let history = getConversationHistory(for: chatId) {
             // Convert from unified format to MessageData
             return history.messages.map { message in
-                let user = message.role == .user ? "User" : getChatModel(for: chatId)?.name ?? "Assistant"
+                let user = message.role == .user ? "User" : getChatModel(for: chatId)?.displayName ?? "Assistant"
                 
                 // Convert tool usage
                 let toolUse: ToolInfo? = message.toolUse.map { usage in

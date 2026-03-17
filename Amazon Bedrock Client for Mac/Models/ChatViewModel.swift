@@ -951,7 +951,7 @@ class ChatViewModel: ObservableObject {
                         text: streamedText.isEmpty ? "Analyzing your request..." : streamedText,
                         thinking: thinking,
                         signature: thinkingSignature,
-                        user: chatModel.name,
+                        user: chatModel.displayName,
                         isError: false,
                         sentTime: Date(),
                         toolUse: currentToolInfo
@@ -1160,7 +1160,7 @@ class ChatViewModel: ObservableObject {
                     text: assistantText,
                     thinking: thinking,
                     signature: thinkingSignature,
-                    user: chatModel.name,
+                    user: chatModel.displayName,
                     isError: false,
                     sentTime: Date()
                 )
@@ -1283,7 +1283,7 @@ class ChatViewModel: ObservableObject {
                 let newMessage = MessageData(
                     id: messageId,
                     text: text,
-                    user: self.chatModel.name,
+                    user: self.chatModel.displayName,
                     isError: false,
                     sentTime: Date()
                 )
@@ -1309,7 +1309,7 @@ class ChatViewModel: ObservableObject {
                     id: messageId,
                     text: "",
                     thinking: thinking,
-                    user: self.chatModel.name,
+                    user: self.chatModel.displayName,
                     isError: false,
                     sentTime: Date()
                 )
@@ -1981,7 +1981,7 @@ class ChatViewModel: ObservableObject {
         let assistantMessage = MessageData(
             id: messageId,
             text: initialText,
-            user: chatModel.name,
+            user: chatModel.displayName,
             isError: false,
             sentTime: Date()
         )
@@ -2180,7 +2180,7 @@ class ChatViewModel: ObservableObject {
         let assistantMessage = MessageData(
             id: UUID(),
             text: responseText,
-            user: chatModel.name,
+            user: chatModel.displayName,
             isError: false,
             sentTime: Date()
         )
@@ -2426,7 +2426,7 @@ class ChatViewModel: ObservableObject {
         let imageMessage = MessageData(
             id: UUID(),
             text: "",  // No markdown needed - image is in imageBase64Strings
-            user: chatModel.name,
+            user: chatModel.displayName,
             isError: false,
             sentTime: Date(),
             imageBase64Strings: [imageReference]  // Use file reference directly
@@ -2809,7 +2809,7 @@ class ChatViewModel: ObservableObject {
             text: responseText,
             thinking: thinking,
             signature: thinkingSignature,
-            user: chatModel.name,
+            user: chatModel.displayName,
             isError: false,
             sentTime: Date()
         )
