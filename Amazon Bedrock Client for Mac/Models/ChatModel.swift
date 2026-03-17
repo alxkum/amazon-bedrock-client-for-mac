@@ -37,6 +37,33 @@ class ChatModel: Identifiable, Equatable, Hashable, @unchecked Sendable {
         hasher.combine(chatId)
     }
     
+    var displayName: String {
+        var result = name
+        // Strip region prefixes case-insensitively (from inference profiles)
+        for prefix in ["Global ", "US "] {
+            if result.lowercased().hasPrefix(prefix.lowercased()) {
+                result = String(result.dropFirst(prefix.count))
+            }
+        }
+        // Strip provider prefix case-insensitively (e.g. "Anthropic ", "Meta ", "Amazon ")
+        let providerCandidates: [String]
+        if !provider.isEmpty && !provider.contains("_") {
+            providerCandidates = [provider]
+        } else {
+            // Inference profiles store type (e.g. "SYSTEM_DEFINED") as provider,
+            // so fall back to common provider names
+            providerCandidates = ["Anthropic", "Meta", "Amazon", "Mistral", "Cohere", "AI21 Labs", "Stability AI"]
+        }
+        for candidate in providerCandidates {
+            let candidatePrefix = candidate + " "
+            if result.lowercased().hasPrefix(candidatePrefix.lowercased()) {
+                result = String(result.dropFirst(candidatePrefix.count))
+                break
+            }
+        }
+        return result
+    }
+
     static func fromSummary(_ summary: BedrockClientTypes.FoundationModelSummary) -> ChatModel {
         ChatModel(
             id: summary.modelId ?? "",

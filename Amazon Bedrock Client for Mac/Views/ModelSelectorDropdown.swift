@@ -35,7 +35,7 @@ struct ModelSelectorDropdown: View {
                         .scaledToFit()
                         .frame(width: 20, height: 20)
                     
-                    Text(model.name)
+                    Text(model.displayName)
                         .font(.system(size: 13, weight: .medium))
                         .lineLimit(1)
                         .truncationMode(.tail)

@@ -526,7 +526,7 @@ struct SidebarView: View {
                             .lineLimit(1)
                     }
 
-                    Text(chat.name)
+                    Text(chat.displayName)
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
                         .lineLimit(1)
