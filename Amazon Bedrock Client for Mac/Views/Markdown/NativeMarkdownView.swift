@@ -16,9 +16,24 @@ class MarkdownTextView: NSTextView {
     var codeBlockBackground: NSColor = .clear
     var codeBlockHeaderBackground: NSColor = .clear
 
+    var onHeightChange: ((CGFloat) -> Void)?
+
     // Copy button shown on hover
     private var copyButton: NSButton?
     private var hoveredCodeBlock: CodeBlockInfo?
+
+    override func layout() {
+        super.layout()
+        recalculateHeight()
+    }
+
+    private func recalculateHeight() {
+        guard let layoutManager = layoutManager, let container = textContainer else { return }
+        layoutManager.ensureLayout(for: container)
+        let usedRect = layoutManager.usedRect(for: container)
+        let newHeight = ceil(usedRect.height) + textContainerInset.height * 2 + 2
+        onHeightChange?(newHeight)
+    }
 
     override func draw(_ dirtyRect: NSRect) {
         drawCodeBlockBackgrounds(dirtyRect)
@@ -262,15 +277,25 @@ struct NativeMarkdownView: NSViewRepresentable {
         // Set delegate for link clicks
         textView.delegate = context.coordinator
 
-        applyContent(to: textView)
+        // Wire up height recalculation on layout changes (e.g. window resize)
+        textView.onHeightChange = { [weak coordinator = context.coordinator] newHeight in
+            guard let coordinator = coordinator else { return }
+            DispatchQueue.main.async {
+                if abs(coordinator.reportedHeight.wrappedValue - newHeight) > 1 {
+                    coordinator.reportedHeight.wrappedValue = newHeight
+                }
+            }
+        }
+
+        applyContent(to: textView, coordinator: context.coordinator)
         return textView
     }
 
     func updateNSView(_ textView: MarkdownTextView, context: Context) {
-        applyContent(to: textView)
+        applyContent(to: textView, coordinator: context.coordinator)
     }
 
-    private func applyContent(to textView: MarkdownTextView) {
+    private func applyContent(to textView: MarkdownTextView, coordinator: Coordinator? = nil) {
         let isDark = colorScheme == .dark
         let parser = ExtendedMarkdownParser()
         let document = parser.parse(text)
@@ -281,11 +306,13 @@ struct NativeMarkdownView: NSViewRepresentable {
         // Apply search highlights
         applySearchHighlights(to: attrStr)
 
-        // Only update if content changed
+        // Update if content changed OR color scheme changed
         let currentText = textView.textStorage?.string ?? ""
-        if currentText != attrStr.string || !searchRanges.isEmpty {
+        let colorSchemeChanged = coordinator?.lastIsDark != nil && coordinator?.lastIsDark != isDark
+        if currentText != attrStr.string || !searchRanges.isEmpty || colorSchemeChanged {
             textView.textStorage?.setAttributedString(attrStr)
         }
+        coordinator?.lastIsDark = isDark
 
         // Update metadata for drawing and hover
         textView.blockquoteRanges = builder.blockquoteRanges
@@ -329,9 +356,12 @@ struct NativeMarkdownView: NSViewRepresentable {
 
     class Coordinator: NSObject, NSTextViewDelegate {
         var parent: NativeMarkdownView
+        var reportedHeight: Binding<CGFloat>
+        var lastIsDark: Bool?
 
         init(parent: NativeMarkdownView) {
             self.parent = parent
+            self.reportedHeight = parent._reportedHeight
         }
 
         func textView(_ textView: NSTextView, clickedOnLink link: Any, at charIndex: Int) -> Bool {
