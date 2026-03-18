@@ -268,7 +268,9 @@ struct ChatView: View {
                 MessageView(
                     message: message,
                     searchResult: getSearchResultForMessage(idx),
-                    adjustedFontSize: CGFloat(adjustedFontSize)
+                    adjustedFontSize: CGFloat(adjustedFontSize),
+                    searchQuery: searchQuery,
+                    currentHighlightIndex: computeLocalHighlightIndex(for: idx)
                 )
                     .id(idx)
                     .frame(maxWidth: .infinity)
@@ -567,6 +569,22 @@ struct ChatView: View {
     private func getSearchResultForMessage(_ messageIndex: Int) -> SearchMatch? {
         return searchResult.matches.first { $0.messageIndex == messageIndex }
     }
+
+    private func computeLocalHighlightIndex(for messageIndex: Int) -> Int {
+        guard searchResult.totalMatches > 0, !searchQuery.isEmpty else { return -1 }
+        var globalOffset = 0
+        for match in searchResult.matches {
+            if match.messageIndex == messageIndex {
+                let localIndex = currentMatchIndex - globalOffset
+                if localIndex >= 0 && localIndex < match.ranges.count {
+                    return localIndex
+                }
+                return -1
+            }
+            globalOffset += match.ranges.count
+        }
+        return -1
+    }
     
     private func handleBottomAnchorChange(_ bottomY: CGFloat, containerHeight: CGFloat) {
         guard !isInitialLoad else { return }
@@ -609,30 +627,15 @@ struct ChatView: View {
         // Temporarily disable auto-scroll to bottom
         let wasAtBottom = isAtBottom
         isAtBottom = false
-        
+
         withAnimation(.easeInOut(duration: 0.3)) {
-            // First scroll to the message
             proxy.scrollTo(messageIndex, anchor: .center)
         }
-        
-        // Then notify the specific message to highlight and scroll to the exact match
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-            NotificationCenter.default.post(
-                name: NSNotification.Name("ScrollToSearchMatch"),
-                object: nil,
-                userInfo: [
-                    "messageIndex": messageIndex,
-                    "matchIndex": matchIndex,
-                    "searchQuery": self.searchQuery
-                ]
-            )
-            
-            // Keep auto-scroll disabled for a bit longer to prevent interference
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                // Only restore auto-scroll if we were actually at bottom before
-                if wasAtBottom {
-                    self.isAtBottom = true
-                }
+
+        // Keep auto-scroll disabled briefly to prevent interference
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            if wasAtBottom {
+                self.isAtBottom = true
             }
         }
     }

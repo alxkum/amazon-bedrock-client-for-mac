@@ -238,16 +238,16 @@ class MarkdownTextView: NSTextView {
 struct NativeMarkdownView: NSViewRepresentable {
     let text: String
     let fontSize: CGFloat
-    let searchRanges: [NSRange]
+    let searchQuery: String
     let currentMatchIndex: Int
     @Binding var reportedHeight: CGFloat
 
     @SwiftUI.Environment(\.colorScheme) private var colorScheme
 
-    init(text: String, fontSize: CGFloat, searchRanges: [NSRange] = [], currentMatchIndex: Int = -1, reportedHeight: Binding<CGFloat>? = nil) {
+    init(text: String, fontSize: CGFloat, searchQuery: String = "", currentMatchIndex: Int = -1, reportedHeight: Binding<CGFloat>? = nil) {
         self.text = text
         self.fontSize = fontSize
-        self.searchRanges = searchRanges
+        self.searchQuery = searchQuery
         self.currentMatchIndex = currentMatchIndex
         self._reportedHeight = reportedHeight ?? .constant(0)
     }
@@ -309,10 +309,14 @@ struct NativeMarkdownView: NSViewRepresentable {
         // Update if content changed OR color scheme changed
         let currentText = textView.textStorage?.string ?? ""
         let colorSchemeChanged = coordinator?.lastIsDark != nil && coordinator?.lastIsDark != isDark
-        if currentText != attrStr.string || !searchRanges.isEmpty || colorSchemeChanged {
+        let searchChanged = coordinator?.lastSearchQuery != searchQuery
+            || coordinator?.lastCurrentMatchIndex != currentMatchIndex
+        if currentText != attrStr.string || searchChanged || colorSchemeChanged {
             textView.textStorage?.setAttributedString(attrStr)
         }
         coordinator?.lastIsDark = isDark
+        coordinator?.lastSearchQuery = searchQuery
+        coordinator?.lastCurrentMatchIndex = currentMatchIndex
 
         // Update metadata for drawing and hover
         textView.blockquoteRanges = builder.blockquoteRanges
@@ -337,12 +341,18 @@ struct NativeMarkdownView: NSViewRepresentable {
     }
 
     private func applySearchHighlights(to attrStr: NSMutableAttributedString) {
-        guard !searchRanges.isEmpty else { return }
+        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !query.isEmpty else { return }
 
-        for (idx, range) in searchRanges.enumerated() {
+        let ranges = findMatchesInRenderedText(query: query, in: attrStr.string)
+        guard !ranges.isEmpty else { return }
+
+        let clampedMatchIndex = (currentMatchIndex >= 0 && currentMatchIndex < ranges.count) ? currentMatchIndex : -1
+
+        for (idx, range) in ranges.enumerated() {
             guard range.location >= 0, range.location + range.length <= attrStr.length else { continue }
 
-            if idx == currentMatchIndex {
+            if idx == clampedMatchIndex {
                 attrStr.addAttribute(.backgroundColor, value: NSColor.orange.withAlphaComponent(0.9), range: range)
                 attrStr.addAttribute(.foregroundColor, value: NSColor.white, range: range)
             } else {
@@ -352,12 +362,85 @@ struct NativeMarkdownView: NSViewRepresentable {
         }
     }
 
+    private func findMatchesInRenderedText(query: String, in text: String) -> [NSRange] {
+        let searchTerms = tokenizeQuery(query)
+        var allRanges: [NSRange] = []
+        let lowercaseText = text.lowercased()
+
+        for term in searchTerms {
+            let ranges = findAllOccurrences(of: term, in: lowercaseText)
+            allRanges.append(contentsOf: ranges)
+        }
+
+        return mergeOverlappingRanges(allRanges).sorted { $0.location < $1.location }
+    }
+
+    private func tokenizeQuery(_ query: String) -> [String] {
+        let tokens = query.components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+        var searchTerms = [query]
+        searchTerms.append(contentsOf: tokens)
+        return Array(Set(searchTerms))
+    }
+
+    private func findAllOccurrences(of term: String, in lowercaseText: String) -> [NSRange] {
+        var ranges: [NSRange] = []
+        var searchRange = NSRange(location: 0, length: lowercaseText.count)
+
+        while searchRange.location < lowercaseText.count {
+            let foundRange = (lowercaseText as NSString).range(
+                of: term,
+                options: [.caseInsensitive, .diacriticInsensitive],
+                range: searchRange
+            )
+
+            if foundRange.location == NSNotFound {
+                break
+            }
+
+            ranges.append(foundRange)
+            searchRange.location = foundRange.location + foundRange.length
+            searchRange.length = lowercaseText.count - searchRange.location
+        }
+
+        return ranges
+    }
+
+    private func mergeOverlappingRanges(_ ranges: [NSRange]) -> [NSRange] {
+        guard !ranges.isEmpty else { return [] }
+
+        let sortedRanges = ranges.sorted { $0.location < $1.location }
+        var mergedRanges: [NSRange] = []
+        var currentRange = sortedRanges[0]
+
+        for range in sortedRanges.dropFirst() {
+            if range.location <= currentRange.location + currentRange.length {
+                let endLocation = max(
+                    currentRange.location + currentRange.length,
+                    range.location + range.length
+                )
+                currentRange = NSRange(
+                    location: currentRange.location,
+                    length: endLocation - currentRange.location
+                )
+            } else {
+                mergedRanges.append(currentRange)
+                currentRange = range
+            }
+        }
+
+        mergedRanges.append(currentRange)
+        return mergedRanges
+    }
+
     // MARK: - Coordinator
 
     class Coordinator: NSObject, NSTextViewDelegate {
         var parent: NativeMarkdownView
         var reportedHeight: Binding<CGFloat>
         var lastIsDark: Bool?
+        var lastSearchQuery: String = ""
+        var lastCurrentMatchIndex: Int = -1
 
         init(parent: NativeMarkdownView) {
             self.parent = parent

@@ -7,22 +7,21 @@
 
 import SwiftUI
 import MarkdownKit
-import Combine
 import Foundation
 
 // MARK: - LazyMarkdownView
 struct LazyMarkdownView: View {
     let text: String
     let fontSize: CGFloat
-    let searchRanges: [NSRange]
+    let searchQuery: String
     let currentMatchIndex: Int
 
     @State private var contentHeight: CGFloat = 20
 
-    init(text: String, fontSize: CGFloat, searchRanges: [NSRange] = [], currentMatchIndex: Int = -1) {
+    init(text: String, fontSize: CGFloat, searchQuery: String = "", currentMatchIndex: Int = -1) {
         self.text = text
         self.fontSize = fontSize
-        self.searchRanges = searchRanges
+        self.searchQuery = searchQuery
         self.currentMatchIndex = currentMatchIndex
     }
 
@@ -30,7 +29,7 @@ struct LazyMarkdownView: View {
         NativeMarkdownView(
             text: text,
             fontSize: fontSize,
-            searchRanges: searchRanges,
+            searchQuery: searchQuery,
             currentMatchIndex: currentMatchIndex,
             reportedHeight: $contentHeight
         )
@@ -327,19 +326,21 @@ struct GeneratedVideoView: View {
 struct ExpandableMarkdownItem: View {
     @State private var isExpanded = false
     @Environment(\.colorScheme) private var colorScheme: ColorScheme
-    
+
     let header: String
     let text: String
     let fontSize: CGFloat
-    let searchRanges: [NSRange]
+    let searchQuery: String
+    let currentMatchIndex: Int
     var summary: String? = nil  // Optional summary to show in header
     var isStreaming: Bool = false  // Whether content is still streaming
-    
-    init(header: String, text: String, fontSize: CGFloat, searchRanges: [NSRange] = [], summary: String? = nil, isStreaming: Bool = false) {
+
+    init(header: String, text: String, fontSize: CGFloat, searchQuery: String = "", currentMatchIndex: Int = -1, summary: String? = nil, isStreaming: Bool = false) {
         self.header = header
         self.text = text
         self.fontSize = fontSize
-        self.searchRanges = searchRanges
+        self.searchQuery = searchQuery
+        self.currentMatchIndex = currentMatchIndex
         self.summary = summary
         self.isStreaming = isStreaming
     }
@@ -384,7 +385,8 @@ struct ExpandableMarkdownItem: View {
                 LazyMarkdownView(
                     text: text,
                     fontSize: fontSize - 2,
-                    searchRanges: searchRanges
+                    searchQuery: searchQuery,
+                    currentMatchIndex: currentMatchIndex
                 )
                 .padding(.leading, fontSize / 2)
             }
@@ -430,13 +432,14 @@ struct MessageView: View {
     let message: MessageData
     let searchResult: SearchMatch?  // Enhanced search result
     var adjustedFontSize: CGFloat = -1 // One size smaller
+    var searchQuery: String = ""
     
     @StateObject var viewModel = MessageViewModel()
     @Environment(\.fontSize) private var fontSize: CGFloat
     @Environment(\.colorScheme) private var colorScheme: ColorScheme
+    var currentHighlightIndex: Int = -1
+
     @State private var isHovering = false
-    @State private var currentHighlightIndex = 0
-    @State private var scrollToMatchNotification: AnyCancellable?
     
     private let imageSize: CGFloat = 100
     
@@ -467,12 +470,6 @@ struct MessageView: View {
                     }
                 }
             }
-        }
-        .onAppear {
-            setupScrollToMatchNotification()
-        }
-        .onDisappear {
-            scrollToMatchNotification?.cancel()
         }
         .textSelection(.enabled)
     }
@@ -554,29 +551,32 @@ struct MessageView: View {
                     header: "Thinking",
                     text: thinking,
                     fontSize: fontSize + adjustedFontSize - 2,
-                    searchRanges: searchResult?.ranges ?? [],
+                    searchQuery: searchQuery,
+                    currentMatchIndex: currentHighlightIndex,
                     summary: message.thinkingSummary,
                     isStreaming: message.text.isEmpty  // Still streaming if no text yet
                 )
                 .padding(.vertical, 2)
             }
-            
+
             // Main message content (skip if empty - e.g., video-only messages)
             if !message.text.isEmpty {
                 LazyMarkdownView(
                     text: message.text,
                     fontSize: fontSize + adjustedFontSize,
-                    searchRanges: searchResult?.ranges ?? []
+                    searchQuery: searchQuery,
+                    currentMatchIndex: currentHighlightIndex
                 )
             }
-            
+
             // Tool use information display
             if let toolUse = message.toolUse {
                 ExpandableMarkdownItem(
                     header: "Using tool: \(toolUse.name)",
                     text: formatToolInput(toolUse.input),
                     fontSize: fontSize + adjustedFontSize - 2,
-                    searchRanges: searchResult?.ranges ?? []
+                    searchQuery: searchQuery,
+                    currentMatchIndex: currentHighlightIndex
                 )
                 .padding(.vertical, 2)
             }
@@ -587,7 +587,8 @@ struct MessageView: View {
                     header: "Tool Result",
                     text: toolResult,
                     fontSize: fontSize + adjustedFontSize - 2,
-                    searchRanges: searchResult?.ranges ?? []
+                    searchQuery: searchQuery,
+                    currentMatchIndex: currentHighlightIndex
                 )
                 .padding(.vertical, 2)
             }
@@ -869,33 +870,6 @@ struct MessageView: View {
         return formatter.string(from: date)
     }
     
-    // MARK: - Search Match Scrolling
-    
-    private func setupScrollToMatchNotification() {
-        scrollToMatchNotification = NotificationCenter.default
-            .publisher(for: NSNotification.Name("ScrollToSearchMatch"))
-            .sink { notification in
-                guard let userInfo = notification.userInfo,
-                      let messageIndex = userInfo["messageIndex"] as? Int,
-                      let matchIndex = userInfo["matchIndex"] as? Int,
-                      let searchQuery = userInfo["searchQuery"] as? String else {
-                    return
-                }
-                
-                // Check if this notification is for this message
-                if let searchMatch = searchResult,
-                   searchMatch.messageIndex == messageIndex {
-                    currentHighlightIndex = matchIndex
-                    scrollToSpecificMatch(matchIndex: matchIndex, searchQuery: searchQuery)
-                }
-            }
-    }
-    
-    private func scrollToSpecificMatch(matchIndex: Int, searchQuery: String) {
-        // Search highlighting is now handled natively via AttributedString
-        // in NativeMarkdownView — no WebView JS needed.
-        currentHighlightIndex = matchIndex
-    }
 }
 
 // MARK: - MessageViewModel
