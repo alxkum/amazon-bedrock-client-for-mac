@@ -303,10 +303,10 @@ class TextHighlighter {
                     
                     // Use different colors for current match vs other matches
                     if index == currentMatchIndex {
-                        attributed[attrRange].backgroundColor = Color.orange.opacity(0.9)
-                        attributed[attrRange].foregroundColor = .white
+                        attributed[attrRange].backgroundColor = Color.yellow
+                        attributed[attrRange].foregroundColor = .black
                     } else {
-                        attributed[attrRange].backgroundColor = highlightColor.opacity(0.8)
+                        attributed[attrRange].backgroundColor = Color.orange.opacity(0.75)
                         attributed[attrRange].foregroundColor = .black
                     }
                 }

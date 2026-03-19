@@ -353,10 +353,10 @@ struct NativeMarkdownView: NSViewRepresentable {
             guard range.location >= 0, range.location + range.length <= attrStr.length else { continue }
 
             if idx == clampedMatchIndex {
-                attrStr.addAttribute(.backgroundColor, value: NSColor.orange.withAlphaComponent(0.9), range: range)
-                attrStr.addAttribute(.foregroundColor, value: NSColor.white, range: range)
+                attrStr.addAttribute(.backgroundColor, value: NSColor.yellow, range: range)
+                attrStr.addAttribute(.foregroundColor, value: NSColor.black, range: range)
             } else {
-                attrStr.addAttribute(.backgroundColor, value: NSColor.yellow.withAlphaComponent(0.8), range: range)
+                attrStr.addAttribute(.backgroundColor, value: NSColor.orange.withAlphaComponent(0.75), range: range)
                 attrStr.addAttribute(.foregroundColor, value: NSColor.black, range: range)
             }
         }
