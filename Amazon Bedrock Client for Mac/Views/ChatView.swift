@@ -7,12 +7,20 @@
 
 import SwiftUI
 import Combine
+import QuartzCore
 
 struct BottomAnchorPreferenceKey: PreferenceKey {
     typealias Value = CGFloat
     nonisolated(unsafe) static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
+    }
+}
+
+struct ResponseContentHeightKey: PreferenceKey {
+    nonisolated(unsafe) static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value += nextValue()
     }
 }
 
@@ -23,6 +31,49 @@ struct UserMessageOffsetsKey: PreferenceKey {
         value.merge(nextValue()) { _, new in new }
     }
 }
+
+// MARK: - NSScrollView Bridge for native animated scrolling
+
+@MainActor
+final class NSScrollViewBridge: ObservableObject {
+    weak var scrollView: NSScrollView?
+
+    var currentOffset: CGFloat {
+        scrollView?.contentView.bounds.origin.y ?? 0
+    }
+
+    func animateScroll(to offset: CGFloat, duration: TimeInterval) {
+        guard let scrollView = scrollView else { return }
+        let documentHeight = scrollView.documentView?.frame.height ?? 0
+        let viewportHeight = scrollView.contentView.bounds.height
+        let maxOffset = max(0, documentHeight - viewportHeight)
+        let clampedOffset = min(max(0, offset), maxOffset)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = duration
+            context.timingFunction = CAMediaTimingFunction(name: CAMediaTimingFunctionName(rawValue: "easeInEaseOut"))
+            scrollView.contentView.animator().setBoundsOrigin(NSPoint(x: 0, y: clampedOffset))
+        } completionHandler: { [weak scrollView] in
+            guard let scrollView = scrollView else { return }
+            scrollView.reflectScrolledClipView(scrollView.contentView)
+        }
+    }
+}
+
+struct NSScrollViewFinder: NSViewRepresentable {
+    let bridge: NSScrollViewBridge
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView(frame: .zero)
+        DispatchQueue.main.async {
+            bridge.scrollView = view.enclosingScrollView
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
+}
+
+// MARK: - ChatView
 
 struct ChatView: View {
     @StateObject private var viewModel: ChatViewModel
@@ -41,7 +92,24 @@ struct ChatView: View {
     @State private var isInitialLoad: Bool = true
     @State private var initialScrollTask: Task<Void, Never>? = nil
     @State private var showLoadingOverlay: Bool = false
-    
+
+    // Streaming scroll UX state
+    @State private var streamingSpacerHeight: CGFloat = 0
+    @State private var initialStreamingSpace: CGFloat = 0
+    @State private var lastSentUserMessageIndex: Int? = nil
+    @StateObject private var scrollViewBridge = NSScrollViewBridge()
+
+    /// Layout constants matching the message list VStack configuration
+    private let messageListPadding: CGFloat = 16     // matches .padding() on the VStack
+    private let messageListSpacing: CGFloat = 2      // matches VStack(spacing: 2)
+    private let sentinelHeight: CGFloat = 1          // matches the sentinel Color.clear frame
+
+    /// Fixed layout overhead below the last tracked message:
+    /// spacing(msg→spacer) + spacing(spacer→sentinel) + sentinel + bottom padding
+    private var streamingBottomOverhead: CGFloat {
+        messageListSpacing + messageListSpacing + sentinelHeight + messageListPadding
+    }
+
     // Font size adjustment state
     @AppStorage("adjustedFontSize") private var adjustedFontSize: Int = -1
     
@@ -242,6 +310,8 @@ struct ChatView: View {
                         }
                         return
                     }
+                    // During streaming, spacer inflates sentinel position - skip bottom detection
+                    if viewModel.streamingPhase != .idle { return }
                     handleBottomAnchorChange(bottomY, containerHeight: outerGeo.size.height)
                 }
                 .onPreferenceChange(UserMessageOffsetsKey.self) { offsets in
@@ -255,6 +325,35 @@ struct ChatView: View {
                 .onChange(of: currentMatchIndex) { _, idx in
                     jumpToMatchIndex(idx, proxy: proxy)
                 }
+                .onPreferenceChange(ResponseContentHeightKey.self) { totalHeight in
+                    guard lastSentUserMessageIndex != nil else { return }
+                    streamingSpacerHeight = max(0, initialStreamingSpace - totalHeight - streamingBottomOverhead)
+                }
+                .onChange(of: viewModel.streamingPhase) { _, newPhase in
+                    switch newPhase {
+                    case .waitingForFirstToken:
+                        let userMsgIdx = viewModel.messages.count - 1
+                        lastSentUserMessageIndex = userMsgIdx
+                        isAtBottom = true
+
+                        // Skip scroll-to-top for the very first message — already at top
+                        guard userMsgIdx > 0 else { break }
+
+                        initialStreamingSpace = outerGeo.size.height
+                        streamingSpacerHeight = outerGeo.size.height
+
+                        Task { @MainActor in
+                            try? await Task.sleep(nanoseconds: 100_000_000)
+                            scrollViewBridge.animateScroll(to: .greatestFiniteMagnitude, duration: 0.5)
+                        }
+
+                    case .streaming:
+                        break
+
+                    case .idle:
+                        lastSentUserMessageIndex = nil
+                    }
+                }
             }
         }
     }
@@ -264,6 +363,8 @@ struct ChatView: View {
         proxy: ScrollViewProxy
     ) -> some View {
         let messageList = VStack(spacing: 2) {
+            NSScrollViewFinder(bridge: scrollViewBridge)
+                .frame(width: 0, height: 0)
             ForEach(Array(viewModel.messages.enumerated()), id: \.offset) { idx, message in
                 MessageView(
                     message: message,
@@ -277,6 +378,19 @@ struct ChatView: View {
                     .anchorPreference(key: UserMessageOffsetsKey.self, value: .top) { anchor in
                         message.user == "User" ? [idx: outerGeo[anchor].y] : [:]
                     }
+                    .background(
+                        GeometryReader { geo in
+                            Color.clear.preference(
+                                key: ResponseContentHeightKey.self,
+                                value: idx >= (lastSentUserMessageIndex ?? Int.max) ? geo.size.height : 0
+                            )
+                        }
+                    )
+            }
+            // Dynamic spacer for streaming UX
+            if streamingSpacerHeight > 0 {
+                Color.clear
+                    .frame(height: streamingSpacerHeight)
             }
             Color.clear
                 .frame(height: 1)

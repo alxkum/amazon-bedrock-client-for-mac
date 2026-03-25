@@ -181,6 +181,14 @@ class ChatViewModel: ObservableObject {
     @Published var isMessageBarDisabled: Bool = false
     @Published var isSending: Bool = false
     @Published var isStreamingEnabled: Bool = false
+
+    enum StreamingPhase: Equatable {
+        case idle
+        case waitingForFirstToken
+        case streaming
+    }
+    @Published var streamingPhase: StreamingPhase = .idle
+
     @Published var selectedPlaceholder: String
     @Published var emptyText: String = ""
     @Published var availableTools: [MCPToolInfo] = []
@@ -365,6 +373,7 @@ class ChatViewModel: ObservableObject {
     
     func cancelSending() {
         messageTask?.cancel()
+        streamingPhase = .idle
         chatManager.setIsLoading(false, for: chatId)
     }
     
@@ -433,7 +442,8 @@ class ChatViewModel: ObservableObject {
         
         let userMessage = createUserMessage()
         addMessage(userMessage)
-        
+        streamingPhase = .waitingForFirstToken
+
         // For image generation models, get images BEFORE clearing
         let attachedImages = await getAttachedImagesBase64()
         
@@ -482,6 +492,7 @@ class ChatViewModel: ObservableObject {
             }
         }
         
+        streamingPhase = .idle
         isMessageBarDisabled = false
         chatManager.setIsLoading(false, for: chatId)
     }
@@ -903,6 +914,9 @@ class ChatViewModel: ObservableObject {
         // Use for message ID tracking
         let messageId = UUID()
         currentStreamingMessageId = messageId
+        if streamingPhase == .streaming {
+            streamingPhase = .waitingForFirstToken
+        }
         var currentToolInfo: ToolInfo? = nil
         
         // Reset thinking summary state for new message
@@ -1288,12 +1302,15 @@ class ChatViewModel: ObservableObject {
                     sentTime: Date()
                 )
                 self.messages.append(newMessage)
+                if self.streamingPhase == .waitingForFirstToken {
+                    self.streamingPhase = .streaming
+                }
             } else {
                 if let index = self.messages.firstIndex(where: { $0.id == messageId }) {
                     self.messages[index].text += text
                 }
             }
-            
+
             self.objectWillChange.send()
         }
     }
@@ -1315,6 +1332,9 @@ class ChatViewModel: ObservableObject {
                 )
                 self.messages.append(newMessage)
                 currentThinking = thinking
+                if self.streamingPhase == .waitingForFirstToken {
+                    self.streamingPhase = .streaming
+                }
             } else {
                 if let index = self.messages.firstIndex(where: { $0.id == messageId }) {
                     self.messages[index].thinking = (self.messages[index].thinking ?? "") + thinking
